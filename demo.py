@@ -48,7 +48,7 @@ def moveArm(arm, clientID):
 	armID = "Baxter_" + arm + "Arm_joint"
 	print("Moving {} arm.\n".format(arm))
 
-	for i in range(7):
+	for i in range(1):
 		print("Joint: {}".format(i+1))
 		# Get "handle" to the a joint of the robot
 		result, joint_handle = vrep.simxGetObjectHandle(clientID, armID + str(i+1), vrep.simx_opmode_blocking)
@@ -91,6 +91,9 @@ def main(args):
 
 	# Rotate the torso
 	moveTorso(clientID)
+
+	# Let all animations finish
+	time.sleep(2)
 
 	# Stop simulation
 	vrep.simxStopSimulation(clientID, vrep.simx_opmode_oneshot)
