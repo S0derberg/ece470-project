@@ -47,16 +47,23 @@ def testGripper(gripper_handle, gripperID, gripper_Pos, clientID):
 	time.sleep(1)
 
 	# Close the gripper
-	vrep.simxSetJointTargetPosition(clientID, gripper_handle, -gripper_Pos, vrep.simx_opmode_oneshot)
-	time.sleep(1)
+	# vrep.simxSetJointTargetPosition(clientID, gripper_handle, -gripper_Pos, vrep.simx_opmode_oneshot)
+	# time.sleep(1)
+
+	result, theta = vrep.simxGetJointPosition(clientID, gripper_handle, vrep.simx_opmode_blocking)
+	print("Theta is {}".format(theta))
 
 	# Open the gripper
-	vrep.simxSetJointTargetPosition(clientID, gripper_handle, gripper_Pos, vrep.simx_opmode_oneshot)
+	vrep.simxSetJointTargetPosition(clientID, gripper_handle, theta - np.pi, vrep.simx_opmode_oneshot)
 	time.sleep(1)
+
+	result, theta = vrep.simxGetJointPosition(clientID, gripper_handle, vrep.simx_opmode_blocking)
+	print("Theta is {}".format(theta))
 
 	# Hold the gripper
 	vrep.simxSetJointTargetPosition(clientID, gripper_handle, 0, vrep.simx_opmode_oneshot)
 	time.sleep(1)
+
 
 # Move all the joints of an arm
 def moveArm(arm, clientID):
@@ -85,14 +92,16 @@ def moveTorso(clientID):
 
 # Move the gripper
 def moveGripper1(clientID):
-	result, gripper_handle = vrep.simxGetObjectHandle(clientID, "JacoHand_fingers12_motor1", vrep.simx_opmode_blocking)
+	print("Test Gripper 1\n")
+	result, gripper_handle = vrep.simxGetObjectHandle(clientID, "BarrettHand_jointB_0", vrep.simx_opmode_blocking)
 	if result != vrep.simx_return_ok:
 		raise Execption("Could not get object handle for gripper")
 
-	testGripper(gripper_handle, "JacoHand_fingers12_motor1", 1, clientID)
+	testGripper(gripper_handle, "BarrettHand_jointB_0", 1, clientID)
 
 
 def moveGripper2(clientID):
+	print("Test Gripper 2\n")
 	result, gripper_handle = vrep.simxGetObjectHandle(clientID, "JacoHand1_fingers12_motor1", vrep.simx_opmode_blocking)
 	if result != vrep.simx_return_ok:
 		raise Execption("Could not get object handle for gripper")
@@ -111,19 +120,27 @@ def main(args):
 	if clientID == -1:
 	    raise Exception('Failed connecting to remote API server')
 
+	# Start simulation
+	vrep.simxStartSimulation(clientID, vrep.simx_opmode_oneshot)
 
-	# # Move the joints of the left arm
-	moveArm("left", clientID)
+	# Move the joints of the left arm
+	#moveArm("left", clientID)
 
-	# # # Move the joints of the right arm
-	moveArm("right", clientID)
+	# Move the joints of the right arm
+	#moveArm("right", clientID)
 
-	# # # Rotate the torso
-	moveTorso(clientID)
+	# Rotate the torso
+	#moveTorso(clientID)
 
 	# Test gripper
-	moveGripper1(clientID)
-	moveGripper2(clientID)
+	#moveGripper1(clientID)
+	#moveGripper2(clientID)
+	vrep.simxSetIntegerSignal(clientID, "gripperClose", 1, vrep.simx_opmode_oneshot)
+	time.sleep(5)
+	vrep.simxSetIntegerSignal(clientID, "gripperClose", 0, vrep.simx_opmode_oneshot)
+
+	#result, value = vrep.simxGetIntegerSignal(clientID, "JacoHand", vrep.simx_opmode_streaming)
+	#print("Result was {}".format(result))
 
 	# Let all animations finish
 	time.sleep(2)
