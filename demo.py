@@ -7,8 +7,8 @@ import numpy as np
 # from Professor Bretl.
 
 def testJoint(joint_handle, jointID, clientID):
-	# Wait two seconds
-	time.sleep(1)
+
+	time.sleep(2)
 
 	# Get the initial value of the joint variable
 	result, theta0 = vrep.simxGetJointPosition(clientID, joint_handle, vrep.simx_opmode_blocking)
@@ -19,7 +19,7 @@ def testJoint(joint_handle, jointID, clientID):
 	# Set the desired value of the joint variable
 	vrep.simxSetJointTargetPosition(clientID, joint_handle, theta0 + np.pi, vrep.simx_opmode_oneshot)
 
-	time.sleep(1)
+	time.sleep(2)
 
 	# Get the value of the joint variable after moving it once
 	result, theta1 = vrep.simxGetJointPosition(clientID, joint_handle, vrep.simx_opmode_blocking)
@@ -30,8 +30,7 @@ def testJoint(joint_handle, jointID, clientID):
 	# Set the desired value of the joint variable
 	vrep.simxSetJointTargetPosition(clientID, joint_handle, theta0 - np.pi, vrep.simx_opmode_oneshot)
 
-	# Wait two seconds
-	time.sleep(1)
+	time.sleep(4)
 
 	# Get the value of the joint variable after moving it again
 	result, theta2 = vrep.simxGetJointPosition(clientID, joint_handle, vrep.simx_opmode_blocking)
@@ -43,7 +42,7 @@ def testJoint(joint_handle, jointID, clientID):
 	vrep.simxSetJointTargetPosition(clientID, joint_handle, theta0, vrep.simx_opmode_oneshot)
 
 def testGripper(gripper_handle, gripperID, gripper_Pos, clientID):
-	# Wait two seconds
+
 	time.sleep(1)
 
 	# Close the gripper
@@ -70,7 +69,7 @@ def moveArm(arm, clientID):
 	armID = "Baxter_" + arm + "Arm_joint"
 	print("Moving {} arm.\n".format(arm))
 
-	for i in range(1):
+	for i in range(7):
 		print("Joint: {}".format(i+1))
 		# Get "handle" to the a joint of the robot
 		result, joint_handle = vrep.simxGetObjectHandle(clientID, armID + str(i+1), vrep.simx_opmode_blocking)
@@ -124,23 +123,27 @@ def main(args):
 	vrep.simxStartSimulation(clientID, vrep.simx_opmode_oneshot)
 
 	# Move the joints of the left arm
-	#moveArm("left", clientID)
+	moveArm("left", clientID)
 
 	# Move the joints of the right arm
-	#moveArm("right", clientID)
+	moveArm("right", clientID)
 
 	# Rotate the torso
-	#moveTorso(clientID)
+	moveTorso(clientID)
+
+	time.sleep(3)
 
 	# Test gripper
 	#moveGripper1(clientID)
 	#moveGripper2(clientID)
-	vrep.simxSetIntegerSignal(clientID, "gripperClose", 1, vrep.simx_opmode_oneshot)
-	time.sleep(5)
-	vrep.simxSetIntegerSignal(clientID, "gripperClose", 0, vrep.simx_opmode_oneshot)
+	vrep.simxSetIntegerSignal(clientID, "leftGripperClose", 1, vrep.simx_opmode_oneshot)
+	vrep.simxSetIntegerSignal(clientID, "rightGripperClose", 1, vrep.simx_opmode_oneshot)
 
-	#result, value = vrep.simxGetIntegerSignal(clientID, "JacoHand", vrep.simx_opmode_streaming)
-	#print("Result was {}".format(result))
+	time.sleep(3)
+
+	# Open the hands
+	vrep.simxSetIntegerSignal(clientID, "leftGripperClose", 0, vrep.simx_opmode_oneshot)
+	vrep.simxSetIntegerSignal(clientID, "rightGripperClose", 0, vrep.simx_opmode_oneshot)
 
 	# Let all animations finish
 	time.sleep(2)
