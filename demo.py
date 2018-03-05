@@ -8,7 +8,7 @@ import numpy as np
 
 def testJoint(joint_handle, jointID, clientID):
 	# Wait two seconds
-	time.sleep(2)
+	time.sleep(1)
 
 	# Get the initial value of the joint variable
 	result, theta0 = vrep.simxGetJointPosition(clientID, joint_handle, vrep.simx_opmode_blocking)
@@ -19,7 +19,7 @@ def testJoint(joint_handle, jointID, clientID):
 	# Set the desired value of the joint variable
 	vrep.simxSetJointTargetPosition(clientID, joint_handle, theta0 + np.pi, vrep.simx_opmode_oneshot)
 
-	time.sleep(2)
+	time.sleep(1)
 
 	# Get the value of the joint variable after moving it once
 	result, theta1 = vrep.simxGetJointPosition(clientID, joint_handle, vrep.simx_opmode_blocking)
@@ -31,7 +31,7 @@ def testJoint(joint_handle, jointID, clientID):
 	vrep.simxSetJointTargetPosition(clientID, joint_handle, theta0 - np.pi, vrep.simx_opmode_oneshot)
 
 	# Wait two seconds
-	time.sleep(2)
+	time.sleep(1)
 
 	# Get the value of the joint variable after moving it again
 	result, theta2 = vrep.simxGetJointPosition(clientID, joint_handle, vrep.simx_opmode_blocking)
@@ -42,6 +42,21 @@ def testJoint(joint_handle, jointID, clientID):
 	# Set the desired value of the joint variable back to the initial state
 	vrep.simxSetJointTargetPosition(clientID, joint_handle, theta0, vrep.simx_opmode_oneshot)
 
+def testGripper(gripper_handle, gripperID, gripper_Pos, clientID):
+	# Wait two seconds
+	time.sleep(1)
+
+	# Close the gripper
+	vrep.simxSetJointTargetPosition(clientID, gripper_handle, -gripper_Pos, vrep.simx_opmode_oneshot)
+	time.sleep(1)
+
+	# Open the gripper
+	vrep.simxSetJointTargetPosition(clientID, gripper_handle, gripper_Pos, vrep.simx_opmode_oneshot)
+	time.sleep(1)
+
+	# Hold the gripper
+	vrep.simxSetJointTargetPosition(clientID, gripper_handle, 0, vrep.simx_opmode_oneshot)
+	time.sleep(1)
 
 # Move all the joints of an arm
 def moveArm(arm, clientID):
@@ -68,6 +83,22 @@ def moveTorso(clientID):
 
 	testJoint(joint_handle, 0, clientID)
 
+# Move the gripper
+def moveGripper1(clientID):
+	result, gripper_handle = vrep.simxGetObjectHandle(clientID, "JacoHand_fingers12_motor1", vrep.simx_opmode_blocking)
+	if result != vrep.simx_return_ok:
+		raise Execption("Could not get object handle for gripper")
+
+	testGripper(gripper_handle, "JacoHand_fingers12_motor1", 1, clientID)
+
+
+def moveGripper2(clientID):
+	result, gripper_handle = vrep.simxGetObjectHandle(clientID, "JacoHand1_fingers12_motor1", vrep.simx_opmode_blocking)
+	if result != vrep.simx_return_ok:
+		raise Execption("Could not get object handle for gripper")
+
+	testGripper(gripper_handle, "JacoHand1_fingers12_motor1", 1, clientID)
+	
 
 # Connect to V-Rep and start the simulation
 def main(args):
@@ -80,20 +111,22 @@ def main(args):
 	if clientID == -1:
 	    raise Exception('Failed connecting to remote API server')
 
-	# Start simulation
-	vrep.simxStartSimulation(clientID, vrep.simx_opmode_oneshot)
 
-	# Move the joints of the left arm
+	# # Move the joints of the left arm
 	moveArm("left", clientID)
 
-	# Move the joints of the right arm
+	# # # Move the joints of the right arm
 	moveArm("right", clientID)
 
-	# Rotate the torso
+	# # # Rotate the torso
 	moveTorso(clientID)
 
-	# Stop simulation
-	vrep.simxStopSimulation(clientID, vrep.simx_opmode_oneshot)
+	# Test gripper
+	moveGripper1(clientID)
+	moveGripper2(clientID)
+
+	time.sleep(1)
+
 
 	# Before closing the connection to V-REP, make sure that the last command sent out had time to arrive. You can guarantee this with (for example):
 	vrep.simxGetPingTime(clientID)
