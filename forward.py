@@ -53,13 +53,28 @@ def rotationMatrixToEulerAngles(R) :
     # y = math.atan2(-R[2,0], math.sqrt(R[2,1] * R[2,1] + R[2,2] * R[2,2]))
     # z = math.atan2(R[1,0], R[0,0])
 
-    x = math.atan2(R[1,2], R[2,2])
-    y = math.atan2(-R[0,2], math.sqrt(R[0,0]*R[0,0] + R[0,1]*R[0,1]))
-    z = math.atan2(R[0,1], R[0,0])
+    # x = math.atan2(R[1,2], R[2,2])
+    # y = math.atan2(-R[0,2], math.sqrt(R[0,0]*R[0,0] + R[0,1]*R[0,1]))
+    # z = math.atan2(R[0,1], R[0,0])
 
-    return [-y, x, z]
+    # return [x, y, z]
     #return [x, y, z]
     #return [z, x, -y]
+     
+    sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
+     
+    singular = sy < 1e-6
+ 
+    if  not singular :
+        x = math.atan2(R[2,1] , R[2,2])
+        y = math.atan2(-R[2,0], sy)
+        z = math.atan2(R[1,0], R[0,0])
+    else :
+        x = math.atan2(-R[1,2], R[1,1])
+        y = math.atan2(-R[2,0], sy)
+        z = 0
+ 
+    return np.array([-x, y, z])
 
 def testJoint(joint_handle, jointID, clientID):
 
@@ -228,11 +243,11 @@ def main(args):
 	S[:,5] = screw(-1, 0, 0, -0.1278, 1.0508, 1.2454)
 	S[:,6] = screw(0, 1, 0, -0.1278, 1.1667, 1.2454)
 
-	#setOne = [45, 30, 100, 20, -80, -30, 130]
-	setTwo = [45, 30, 100, 0, 0, 0, 0]
+	setOne = [20, 10, -30, 20, -40, -30, 100]
+	#setTwo = [45, 30, 50, 10, -10, -10, 10]
 	#setThree = []
 
-	pose = forwardKinematics(M, S, setTwo)
+	pose = forwardKinematics(M, S, setOne)
 	# pose = np.array([[0,0,1,0],
 	# 				 [1,0,0,0],
 	# 				 [0,1,0,0],
@@ -242,7 +257,7 @@ def main(args):
 
 	time.sleep(2)
 
-	moveArm("left", clientID, setTwo)
+	moveArm("left", clientID, setOne)
 
 	# Let all animations finish
 	time.sleep(5)
