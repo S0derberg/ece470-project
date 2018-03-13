@@ -49,32 +49,32 @@ def screw(a,b,c,d,e,f):
 # Convert a rotation matrix to euler angles
 def rotationMatrixToEulerAngles(R) :
 
-    # x = math.atan2(R[2,1], R[2,2])
-    # y = math.atan2(-R[2,0], math.sqrt(R[2,1] * R[2,1] + R[2,2] * R[2,2]))
-    # z = math.atan2(R[1,0], R[0,0])
+    x = math.atan2(-R[1,2], R[2,2])
+    y = math.sin(R[0,2])
+    z = math.atan2(-R[0,1],R[0,0])
 
     # x = math.atan2(R[1,2], R[2,2])
     # y = math.atan2(-R[0,2], math.sqrt(R[0,0]*R[0,0] + R[0,1]*R[0,1]))
     # z = math.atan2(R[0,1], R[0,0])
 
-    # return [x, y, z]
+    return [x, y, z]
     #return [x, y, z]
     #return [z, x, -y]
 
     # Below works pretty well as long as the first theta wasn't too big
      
-    sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
+    # sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
      
-    singular = sy < 1e-6
+    # singular = sy < 1e-6
  
-    if  not singular :
-        x = math.atan2(R[2,1] , R[2,2])
-        y = math.atan2(-R[2,0], sy)
-        z = math.atan2(R[1,0], R[0,0])
-    else :
-        x = math.atan2(-R[1,2], R[1,1])
-        y = math.atan2(-R[2,0], sy)
-        z = 0
+    # if  not singular :
+    #     x = math.atan2(R[2,1] , R[2,2])
+    #     y = math.atan2(-R[2,0], sy)
+    #     z = math.atan2(R[1,0], R[0,0])
+    # else :
+    #     x = math.atan2(-R[1,2], R[1,1])
+    #     y = math.atan2(-R[2,0], sy)
+    #     z = 0
  
     return np.array([-x, y, z])
 
@@ -261,9 +261,9 @@ def main(args):
 
 	# To mirror the arms, negate the thetas of joints 1, 3, and 5
 
-	setOne = [20, 10, -30, 20, -40, -30, 100]
+	setOne = [45, 10, -30, 20, -40, -30, 100]
 	#setTwo = [-45, -30, -50, -10, 10, 10, -10]
-	setTwo = [-20, 10, 30, 20, 40, -30, 100]
+	setTwo = [-45, 10, 30, 20, 40, -30, 20]
 	#setThree = []
 
 	poseOne = forwardKinematics(MLeft, SLeft, setOne)
