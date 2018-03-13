@@ -49,9 +49,9 @@ def screw(a,b,c,d,e,f):
 # Convert a rotation matrix to euler angles
 def rotationMatrixToEulerAngles(R) :
 
-    # x = math.atan2(R[2,1], R[2,2])
-    # y = math.atan2(-R[2,0], math.sqrt(R[2,1] * R[2,1] + R[2,2] * R[2,2]))
-    # z = math.atan2(R[1,0], R[0,0])
+    x = math.atan2(R[2,1], R[2,2])
+    y = math.atan2(-R[2,0], math.sqrt(R[2,1] * R[2,1] + R[2,2] * R[2,2]))
+    z = math.atan2(R[1,0], R[0,0])
 
     # x = math.atan2(R[1,2], R[2,2])
     # y = math.atan2(-R[0,2], math.sqrt(R[0,0]*R[0,0] + R[0,1]*R[0,1]))
@@ -63,20 +63,35 @@ def rotationMatrixToEulerAngles(R) :
 
     # Below works pretty well as long as the first theta wasn't too big
      
-    sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
+    # sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
      
-    singular = sy < 1e-6
+    # singular = sy < 1e-6
  
-    if  not singular :
-        x = math.atan2(R[2,1] , R[2,2])
-        y = math.atan2(-R[2,0], sy)
-        z = math.atan2(R[1,0], R[0,0])
-    else :
-        x = math.atan2(-R[1,2], R[1,1])
-        y = math.atan2(-R[2,0], sy)
-        z = 0
+    # if  not singular :
+    #     x = math.atan2(R[2,1] , R[2,2])
+    #     y = math.atan2(-R[2,0], sy)
+    #     z = math.atan2(R[1,0], R[0,0])
+    # else :
+    #     x = math.atan2(-R[1,2], R[1,1])
+    #     y = math.atan2(-R[2,0], sy)
+    #     z = 0
+
+
+    # x = math.atan2(R[1,2], R[2,2])
+    # y = math.atan2(-R[0,2], math.sqrt(R[0,0] * R[0,0] + R[0,1] * R[0,1]))
+    # z = math.atan2(math.sin(x) * R[2,0] - math.cos(x) * R[1,0], math.cos(x) * R[1,1] - math.sin(x) * R[2,1])
  
-    return np.array([-x, y, z])
+    return np.array([x, y, z])
+
+
+def rotationMatrixToQuaternion(R):
+
+	qw = math.sqrt(1 + R[0,0] + R[1,1] + R[2,2]) / 2
+	qx = (R[2,1] - R[1,2]) / (4 * qw)
+	qy = (R[0,2] - R[2,0]) / (4 * qw)
+	qz = (R[1,0] - R[0,1]) / (4 * qw)
+
+	return [qz, qy, qx, qw]
 
 def testJoint(joint_handle, jointID, clientID):
 
@@ -177,6 +192,7 @@ def moveGripper2(clientID):
 
 	testGripper(gripper_handle, "JacoHand1_fingers12_motor1", 1, clientID)
 	
+# Move the dummy reference frame to the given pose.
 def moveFrame(clientID, frameID, pose):
 
 	result, frame_handle = vrep.simxGetObjectHandle(clientID, frameID, vrep.simx_opmode_blocking)
@@ -188,7 +204,8 @@ def moveFrame(clientID, frameID, pose):
 	orientation = pose[0:3,0:3]
 
 	vrep.simxSetObjectPosition(clientID, frame_handle, -1, position, vrep.simx_opmode_oneshot)
-	vrep.simxSetObjectOrientation(clientID, frame_handle, -1, rotationMatrixToEulerAngles(orientation), vrep.simx_opmode_oneshot)	
+	vrep.simxSetObjectOrientation(clientID, frame_handle, frame_handle, rotationMatrixToEulerAngles(orientation), vrep.simx_opmode_oneshot)
+	#vrep.simxSetObjectQuaternion(clientID, frame_handle, -1, rotationMatrixToQuaternion(orientation), vrep.simx_opmode_oneshot)
 
 # Move an arm to a set of joint variables
 def moveArm(arm, clientID, thetas):
@@ -215,6 +232,27 @@ def forwardKinematics(M, S, thetas):
 
 	T = np.dot(product, M)
 	return T
+
+
+# Move the dummy frames to a pose calculated with Forward Kinematics and then
+# move the arms to the provided joint variables
+def moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas):
+
+	setOne = thetas
+	setTwo = [-1*thetas[0], thetas[1], -1*thetas[2], thetas[3], -1*thetas[4], thetas[5], thetas[6]]
+
+	poseOne = forwardKinematics(MLeft, SLeft, setOne)
+	poseTwo = forwardKinematics(MRight, SRight, setTwo)
+
+	moveFrame(clientID, "ReferenceFrame", poseOne)
+	moveFrame(clientID, "ReferenceFrame0", poseTwo)
+
+	time.sleep(2)
+
+	moveArm("left", clientID, setOne)
+	moveArm("right", clientID, setTwo)
+
+	time.sleep(3)
 
 
 # Connect to V-Rep and start the simulation
@@ -261,24 +299,21 @@ def main(args):
 
 	# To mirror the arms, negate the thetas of joints 1, 3, and 5
 
-	setOne = [20, 10, -30, 20, -40, -30, 100]
-	#setTwo = [-45, -30, -50, -10, 10, 10, -10]
-	setTwo = [-20, 10, 30, 20, 40, -30, 100]
-	#setThree = []
+	setOne = [20, 10, -30, 20, -40, -30, 45]
+	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, setOne)
 
-	poseOne = forwardKinematics(MLeft, SLeft, setOne)
-	poseTwo = forwardKinematics(MRight, SRight, setTwo)
+	time.sleep(1)
 
-	moveFrame(clientID, "ReferenceFrame", poseOne)
-	moveFrame(clientID, "ReferenceFrame0", poseTwo)
+	setTwo = [-45, 10, -30, 20, -40, -30, 20]
+	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, setTwo)
 
-	time.sleep(2)
+	time.sleep(1)
 
-	moveArm("left", clientID, setOne)
-	moveArm("right", clientID, setTwo)
+	setThree = [10, -45, -30, 20, -40, -30, 40]
+	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, setThree)
 
 	# Let all animations finish
-	time.sleep(5)
+	time.sleep(3)
 
 	# Stop simulation
 	vrep.simxStopSimulation(clientID, vrep.simx_opmode_oneshot)
