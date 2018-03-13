@@ -49,46 +49,9 @@ def screw(a,b,c,d,e,f):
 # Convert a rotation matrix to euler angles
 def rotationMatrixToEulerAngles(R) :
 
-<<<<<<< HEAD
-    x = math.atan2(-R[1,2], R[2,2])
-    y = math.sin(R[0,2])
+    x = math.atan2(-R[1,2],R[2,2])
+    y = math.asin(R[0,2])
     z = math.atan2(-R[0,1],R[0,0])
-=======
-    x = math.atan2(R[2,1], R[2,2])
-    y = math.atan2(-R[2,0], math.sqrt(R[2,1] * R[2,1] + R[2,2] * R[2,2]))
-    z = math.atan2(R[1,0], R[0,0])
->>>>>>> f556f5f2359cbf4ca106bcc3c62dfcda61c934ab
-
-    # x = math.atan2(R[1,2], R[2,2])
-    # y = math.atan2(-R[0,2], math.sqrt(R[0,0]*R[0,0] + R[0,1]*R[0,1]))
-    # z = math.atan2(R[0,1], R[0,0])
-
-    return [x, y, z]
-    #return [x, y, z]
-    #return [z, x, -y]
-
-    # Below works pretty well as long as the first theta wasn't too big
-     
-    # sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
-     
-    # singular = sy < 1e-6
- 
-    # if  not singular :
-    #     x = math.atan2(R[2,1] , R[2,2])
-    #     y = math.atan2(-R[2,0], sy)
-    #     z = math.atan2(R[1,0], R[0,0])
-    # else :
-    #     x = math.atan2(-R[1,2], R[1,1])
-    #     y = math.atan2(-R[2,0], sy)
-    #     z = 0
-<<<<<<< HEAD
-=======
-
-
-    # x = math.atan2(R[1,2], R[2,2])
-    # y = math.atan2(-R[0,2], math.sqrt(R[0,0] * R[0,0] + R[0,1] * R[0,1]))
-    # z = math.atan2(math.sin(x) * R[2,0] - math.cos(x) * R[1,0], math.cos(x) * R[1,1] - math.sin(x) * R[2,1])
->>>>>>> f556f5f2359cbf4ca106bcc3c62dfcda61c934ab
  
     return np.array([x, y, z])
 
@@ -247,6 +210,18 @@ def forwardKinematics(M, S, thetas):
 # move the arms to the provided joint variables
 def moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas):
 
+	# result, frame_handle = vrep.simxGetObjectHandle(clientID, "ReferenceFrame", vrep.simx_opmode_blocking)
+	# if result != vrep.simx_return_ok:
+	#     raise Exception("Could not get object handle for the Reference Frame object")
+
+	# result, frame_handle0 = vrep.simxGetObjectHandle(clientID, "ReferenceFrame0", vrep.simx_opmode_blocking)
+	# if result != vrep.simx_return_ok:
+	#     raise Exception("Could not get object handle for the Reference Frame0 object")
+
+	# result, [a,b,g] = vrep.simxGetObjectOrientation(clientID, frame_handle, -1, vrep.simx_opmode_streaming) 
+	# result, [a1,b1,g1] = vrep.simxGetObjectOrientation(clientID, frame_handle0, -1, vrep.simx_opmode_streaming)
+
+	# setinitial = np.array([[1, 0, 0, 0],[0, 1, 0, 0], [0, 0, 1, 0],[0, 0, 0, 1]])
 	setOne = thetas
 	setTwo = [-1*thetas[0], thetas[1], -1*thetas[2], thetas[3], -1*thetas[4], thetas[5], thetas[6]]
 
@@ -261,7 +236,13 @@ def moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas):
 	moveArm("left", clientID, setOne)
 	moveArm("right", clientID, setTwo)
 
-	time.sleep(3)
+	# time.sleep(3)
+
+	# vrep.simxSetObjectPosition(clientID, frame_handle, -1, [0,0,0], vrep.simx_opmode_oneshot)
+	# vrep.simxSetObjectOrientation(clientID, frame_handle, frame_handle, [a,b,g], vrep.simx_opmode_oneshot)
+	# vrep.simxSetObjectPosition(clientID, frame_handle0, -1, [0,0,0], vrep.simx_opmode_oneshot)
+	# vrep.simxSetObjectOrientation(clientID, frame_handle0, frame_handle, [a1,b1,g1], vrep.simx_opmode_oneshot)
+
 
 
 # Connect to V-Rep and start the simulation
@@ -307,30 +288,30 @@ def main(args):
 	SRight[:,6] = screw(1, 0, 0, 1.1624, -0.1230, 1.2454)
 
 	# To mirror the arms, negate the thetas of joints 1, 3, and 5
-
-<<<<<<< HEAD
-	setOne = [45, 10, -30, 20, -40, -30, 100]
-	#setTwo = [-45, -30, -50, -10, 10, 10, -10]
-	setTwo = [-45, 10, 30, 20, 40, -30, 20]
-	#setThree = []
-=======
-	setOne = [20, 10, -30, 20, -40, -30, 45]
+	setOne = [-20, 10, -30, 20, -40, -30, 45]
 	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, setOne)
->>>>>>> f556f5f2359cbf4ca106bcc3c62dfcda61c934ab
 
-	time.sleep(1)
+	time.sleep(2)
+	vrep.simxStopSimulation(clientID, vrep.simx_opmode_oneshot)
+	time.sleep(2)
+	vrep.simxStartSimulation(clientID, vrep.simx_opmode_oneshot)
 
-	setTwo = [-45, 10, -30, 20, -40, -30, 20]
+
+	setTwo = [60, 40, 0, 10, -70, -30, 45]
 	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, setTwo)
 
-	time.sleep(1)
+	time.sleep(2)
+	vrep.simxStopSimulation(clientID, vrep.simx_opmode_oneshot)
+	time.sleep(2)
+	vrep.simxStartSimulation(clientID, vrep.simx_opmode_oneshot)
 
-	setThree = [10, -45, -30, 20, -40, -30, 40]
+	# setThree = setTwo
+
+	setThree = [-10, 30, -10, 20, -20, -20, 5]
 	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, setThree)
 
 	# Let all animations finish
-	time.sleep(3)
-
+	time.sleep(2)
 	# Stop simulation
 	vrep.simxStopSimulation(clientID, vrep.simx_opmode_oneshot)
 
