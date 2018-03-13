@@ -60,6 +60,8 @@ def rotationMatrixToEulerAngles(R) :
     # return [x, y, z]
     #return [x, y, z]
     #return [z, x, -y]
+
+    # Below works pretty well as long as the first theta wasn't too big
      
     sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
      
@@ -175,9 +177,9 @@ def moveGripper2(clientID):
 
 	testGripper(gripper_handle, "JacoHand1_fingers12_motor1", 1, clientID)
 	
-def moveFrame(clientID, pose):
+def moveFrame(clientID, frameID, pose):
 
-	result, frame_handle = vrep.simxGetObjectHandle(clientID, "ReferenceFrame", vrep.simx_opmode_blocking)
+	result, frame_handle = vrep.simxGetObjectHandle(clientID, frameID, vrep.simx_opmode_blocking)
 	if result != vrep.simx_return_ok:
 	    raise Exception("Could not get object handle for the Reference Frame object")
 
@@ -229,35 +231,51 @@ def main(args):
 	# Start simulation
 	vrep.simxStartSimulation(clientID, vrep.simx_opmode_oneshot)
 
-	M = np.array([[-1, 0, 0, -0.1278],
-				  [0, 0, 1, 1.3363],
-				  [0, 1, 0, 1.2445],
-				  [0, 0, 0, 1]])
+	MLeft = np.array([[-1, 0, 0, -0.1278],
+				  	  [0, 0, 1, 1.3363],
+				      [0, 1, 0, 1.2445],
+				      [0, 0, 0, 1]])
 
-	S = np.zeros((6,7))
-	S[:,0] = screw(0, 0, 1, -0.1278, 0.2630, 0)
-	S[:,1] = screw(-1, 0, 0, -0.1278, 0.310, 1.3244)
-	S[:,2] = screw(0, 1, 0, -0.1278, 0.4140, 1.3244)
-	S[:,3] = screw(-1, 0, 0, -0.1278, 0.6765, 1.2554)
-	S[:,4] = screw(0, 1, 0, -0.1278, 0.7801, 1.2554)
-	S[:,5] = screw(-1, 0, 0, -0.1278, 1.0508, 1.2454)
-	S[:,6] = screw(0, 1, 0, -0.1278, 1.1667, 1.2454)
+	SLeft = np.zeros((6,7))
+	SLeft[:,0] = screw(0, 0, 1, -0.1278, 0.2630, 0)
+	SLeft[:,1] = screw(-1, 0, 0, -0.1278, 0.310, 1.3244)
+	SLeft[:,2] = screw(0, 1, 0, -0.1278, 0.4140, 1.3244)
+	SLeft[:,3] = screw(-1, 0, 0, -0.1278, 0.6765, 1.2554)
+	SLeft[:,4] = screw(0, 1, 0, -0.1278, 0.7801, 1.2554)
+	SLeft[:,5] = screw(-1, 0, 0, -0.1278, 1.0508, 1.2454)
+	SLeft[:,6] = screw(0, 1, 0, -0.1278, 1.1667, 1.2454)
+
+	MRight = np.array([[0, 0, 1, 1.332],
+				       [1, 0, 0, -0.12287],
+				       [0, 1, 0, 1.2445],
+				       [0, 0, 0, 1]])
+
+	SRight = np.zeros((6,7))
+	SRight[:,0] = screw(0, 0, 1, 0.2387, -0.1230, 0)
+	SRight[:,1] = screw(0, 1, 0, 0.3077, -0.1230, 1.3244)
+	SRight[:,2] = screw(1, 0, 0, 0.4097, -0.1230, 1.3244)
+	SRight[:,3] = screw(0, 1, 0, 0.6722, -0.1230, 1.2554)
+	SRight[:,4] = screw(1, 0, 0, 0.7758, -0.1230, 1.2554)
+	SRight[:,5] = screw(0, 1, 0, 1.0465, -0.1230, 1.2454)
+	SRight[:,6] = screw(1, 0, 0, 1.1624, -0.1230, 1.2454)
+
+	# To mirror the arms, negate the thetas of joints 1, 3, and 5
 
 	setOne = [20, 10, -30, 20, -40, -30, 100]
-	#setTwo = [45, 30, 50, 10, -10, -10, 10]
+	#setTwo = [-45, -30, -50, -10, 10, 10, -10]
+	setTwo = [-20, 10, 30, 20, 40, -30, 100]
 	#setThree = []
 
-	pose = forwardKinematics(M, S, setOne)
-	# pose = np.array([[0,0,1,0],
-	# 				 [1,0,0,0],
-	# 				 [0,1,0,0],
-	# 				 [0,0,0,1]])
+	poseOne = forwardKinematics(MLeft, SLeft, setOne)
+	poseTwo = forwardKinematics(MRight, SRight, setTwo)
 
-	moveFrame(clientID, pose)
+	moveFrame(clientID, "ReferenceFrame", poseOne)
+	moveFrame(clientID, "ReferenceFrame0", poseTwo)
 
 	time.sleep(2)
 
 	moveArm("left", clientID, setOne)
+	moveArm("right", clientID, setTwo)
 
 	# Let all animations finish
 	time.sleep(5)

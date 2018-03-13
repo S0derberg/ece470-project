@@ -8,7 +8,7 @@ import numpy as np
 
 def testJoint(joint_handle, jointID, clientID):
 
-	time.sleep(2)
+	time.sleep(4)
 
 	# Get the initial value of the joint variable
 	result, theta0 = vrep.simxGetJointPosition(clientID, joint_handle, vrep.simx_opmode_blocking)
@@ -70,6 +70,8 @@ def moveArm(arm, clientID):
 	print("Moving {} arm.\n".format(arm))
 
 	for i in range(7):
+		if i != 6:
+			continue
 		print("Joint: {}".format(i+1))
 		# Get "handle" to the a joint of the robot
 		result, joint_handle = vrep.simxGetObjectHandle(clientID, armID + str(i+1), vrep.simx_opmode_blocking)
