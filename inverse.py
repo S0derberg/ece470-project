@@ -19,6 +19,10 @@ def skew(arr):
 	mat[2][1] = arr[0]
 	return mat
 
+# Get the actual values from a skew-symmetric matrix
+def unskew(mat):
+	return np.array([[mat[2][1]], [mat[0][2]], [mat[1][0]]])
+
 # Convert degrees to radians
 def degToRad(angle):
 	return angle * math.pi / 180
@@ -46,6 +50,29 @@ def screw(a,b,c,d,e,f):
 	s[3:] = -1*np.dot(skew(np.array([a,b,c])), np.array([d,e,f]))
 	return s
 
+# Turn a bracketed V into a twist
+def twist(v):
+	Twist = np.zeros(6)
+	Twist[0:3] = np.transpose(unskew(v[0:3,0:3]))
+	Twist[3:] = v[0:3,3]
+	return Twist
+
+# Compute a space jacobian
+def spaceJacobian(S, theta):
+	J = np.zeros((6,len(theta)))
+
+	for i in range(len(theta)):
+		if i == 0:
+			J[:,i] = S[:,i]
+		else:
+			product = 1
+			for j in range(i):
+				product = np.dot(product, expm(bracket(S[:,j])*theta[j]))
+
+			J[:,i] = np.dot(adjoint(product), S[:,i])
+
+	return J
+
 # Convert a rotation matrix to euler angles
 def rotationMatrixToEulerAngles(R) :
 
@@ -55,15 +82,6 @@ def rotationMatrixToEulerAngles(R) :
  
     return np.array([x, y, z])
 
-
-def rotationMatrixToQuaternion(R):
-
-	qw = math.sqrt(1 + R[0,0] + R[1,1] + R[2,2]) / 2
-	qx = (R[2,1] - R[1,2]) / (4 * qw)
-	qy = (R[0,2] - R[2,0]) / (4 * qw)
-	qz = (R[1,0] - R[0,1]) / (4 * qw)
-
-	return [qz, qy, qx, qw]
 
 def testJoint(joint_handle, jointID, clientID):
 
@@ -205,6 +223,26 @@ def forwardKinematics(M, S, thetas):
 	T = np.dot(product, M)
 	return T
 
+# Find a set of joint variables to reach the goal pose
+def inverseKinematics(goal, M, S):
+	theta = np.random.rand(S.shape[1])
+
+	error = 5
+	while error > 0.5:
+		T = forwardKinematics(M, S, theta)
+		V_bracket = logm(np.dot(goal, np.linalg.inv(T)))
+		V = twist(V_bracket)
+		J = spaceJacobian(S, theta)
+		#theta_dot = np.dot(np.dot(np.transpose(J), np.linalg.inv(np.dot(J, np.transpose(J)))), V)
+
+		# (JT * J + 0.00001*I)^-1 * (JT * V)
+		theta_dot = np.dot(np.linalg.inv(np.dot(np.transpose(J), J) + 0.00001*np.identity(7)), np.dot(np.transpose(J), V))
+		theta = theta + theta_dot
+		error = np.linalg.norm(V)
+		print("Error: {}".format(error))
+
+	return theta
+
 
 # Move the dummy frames to a pose calculated with Forward Kinematics and then
 # move the arms to the provided joint variables
@@ -238,6 +276,50 @@ def moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas, frame1, fr
 	vrep.simxSetObjectPosition(clientID, frame_handle, -1, [0,0,0], vrep.simx_opmode_oneshot)
 	vrep.simxSetObjectPosition(clientID, frame_handle0, -1, [0,0,0], vrep.simx_opmode_oneshot)
 
+# move the arm using inverse kinematics
+def moveArmAndFrame(clientID, M, S, pose, arm, frame):
+
+	# Get handles for the frames so we can move them back to the origin when we're done with them
+	result, frame_handle = vrep.simxGetObjectHandle(clientID, frame, vrep.simx_opmode_blocking)
+	if result != vrep.simx_return_ok:
+	    raise Exception("Could not get object handle for the Reference Frame object")
+
+
+	moveFrame(clientID, frame, pose)
+
+	time.sleep(2)
+
+	thetas = inverseKinematics(pose, M, S)
+
+	moveArm(arm, clientID, thetas)
+
+	time.sleep(3)
+
+	vrep.simxSetObjectPosition(clientID, frame_handle, -1, [0,0,0], vrep.simx_opmode_oneshot)
+
+
+def poseFromTranslationAndRotation(x, y, z, alpha, beta, gamma):
+	pose = np.zeros((4,4))
+	pose[0,3] = x
+	pose[1,3] = y
+	pose[2,3] = z
+	pose[3,3] = 1
+
+	x_rot = np.array([[1, 0, 0],
+					  [0, math.cos(degToRad(alpha)), -1*math.sin(degToRad(alpha))],
+					  [0, math.sin(degToRad(alpha)), math.cos(degToRad(alpha))]])
+
+	y_rot = np.array([[math.cos(degToRad(beta)), 0, math.sin(degToRad(beta))],
+					  [0, 1, 0],
+					  [-1*math.sin(degToRad(beta)), 0, math.cos(degToRad(beta))]])
+
+	z_rot = np.array([[math.cos(degToRad(gamma)), -1*math.sin(degToRad(gamma)), 0],
+					  [math.sin(degToRad(gamma)), math.cos(degToRad(gamma)), 0],
+					  [0, 0, 1]])
+
+	rotation = np.dot(np.dot(x_rot, y_rot), z_rot)
+	pose[0:3,0:3] = rotation
+	return pose
 
 
 # Connect to V-Rep and start the simulation
@@ -282,22 +364,50 @@ def main(args):
 	SRight[:,5] = screw(0, 1, 0, 1.0465, -0.1230, 1.2454)
 	SRight[:,6] = screw(1, 0, 0, 1.1624, -0.1230, 1.2454)
 
-	# To mirror the arms, negate the thetas of joints 1, 3, and 5
-	setOne = [-20, 10, -30, 20, -40, -30, 45]
-	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, setOne, "ReferenceFrame", "ReferenceFrame0")
 
-	time.sleep(2)
+	# Get user input for goal pose and do inverse kinematics to go to
+	# goal pose.  Repeat 3 times.
+	for i in range(1):
 
-	setTwo = [60, 40, 0, 10, -70, -30, 45]
-	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, setTwo, "ReferenceFrame1", "ReferenceFrame2")
+		# Get user input for a goal pose
+		# arm = input("Choose the arm to move (left or right): ")
+		# x = int(input("Enter an x-translation: "))
+		# y = int(input("Enter an y-translation: "))
+		# z = int(input("Enter an z-translation: "))
+		# alpha = int(input("Enter a rotation (in degrees) around the x-axis: "))
+		# beta = int(input("Enter a rotation (in degrees) around the y-axis: "))
+		# gamma = int(input("Enter a rotation (in degrees) around the z-axis: "))
+		arm = "right"
+		x = 1
+		y = 0.5
+		z = 1.5
+		alpha = 0
+		beta = 90
+		gamma = 0
 
-	time.sleep(2)
+		pose = poseFromTranslationAndRotation(x, y, z, alpha, beta, gamma)
 
-	setThree = [-10, 30, -10, 20, -20, -20, 5]
-	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, setThree, "ReferenceFrame3", "ReferenceFrame4")
+		# USE INVERSE KINEMATICS TO FIND A SET OF JOINT VARIABLES
 
-	# Let all animations finish
-	time.sleep(2)
+		# VERIFY THAT THE THETAS ARE VALID. IF NOT, RUN IK AGAIN
+
+		# GO TO THOSE THETAS, OR IF THE POSE IS OUT OF RANGE THEN INDICATE THAT
+
+		if arm == "left":
+			M = MLeft
+			S = SLeft
+		elif arm == "right":
+			M = MRight
+			S = SRight
+		else:
+			print("Please enter left or right for the arm")
+			continue
+
+
+		moveArmAndFrame(clientID, M, S, pose, arm, "ReferenceFrame" + str(i))
+
+		time.sleep(2)
+
 
 	# Stop simulation
 	vrep.simxStopSimulation(clientID, vrep.simx_opmode_oneshot)
