@@ -229,7 +229,11 @@ def inverseKinematics(goal, M, S):
 
 	V_error = 5
 	theta_error = 5
+	tries = 0
 	while V_error > 0.1 or theta_error > 0.01:
+		if tries > 100:
+			return theta, False
+
 		T = forwardKinematics(M, S, theta)
 		V_bracket = logm(np.dot(goal, np.linalg.inv(T)))
 		V = twist(V_bracket)
@@ -241,8 +245,9 @@ def inverseKinematics(goal, M, S):
 		V_error = np.linalg.norm(V)
 		theta_error =  np.linalg.norm(theta_dot)
 		print("V Error: {}, Theta Error: {}".format(V_error, theta_error))
+		tries += 1
 
-	return theta
+	return theta, True
 
 # Check if a set of thetas found from inverse kinematics are possible for Baxter
 def checkThetas(thetas, arm):
@@ -310,12 +315,25 @@ def moveArmAndFrame(clientID, M, S, pose, arm, frame):
 	time.sleep(2)
 
 	validThetas = False
+	tries = 0
 	while not validThetas:
-		thetas = inverseKinematics(pose, M, S)
+		if tries > 10:
+			break
+
+		thetas, result = inverseKinematics(pose, M, S)
+
+		if not result:
+			break
+
 		print("++++++++++++++++++++++++++++++++++++++")
 		validThetas = checkThetas(thetas, arm)
+		tries += 1
 
-	moveArm(arm, clientID, thetas)
+	if not validThetas:
+		# Couldn't find a valid set of thetas to reach the goal pose
+		moveTorso(clientID)
+	else:
+		moveArm(arm, clientID, thetas)
 
 	time.sleep(3)
 
@@ -402,8 +420,8 @@ def main(args):
 		# beta = int(input("Enter a rotation (in degrees) around the y-axis: "))
 		# gamma = int(input("Enter a rotation (in degrees) around the z-axis: "))
 		arm = "left"
-		x = -0.6
-		y = 0.5
+		x = 0
+		y = 0
 		z = 1.2
 		alpha = 0
 		beta = 0
