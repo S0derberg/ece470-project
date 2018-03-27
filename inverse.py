@@ -156,14 +156,16 @@ def testArm(arm, clientID):
 
 
 # Rotate the torso
-def moveTorso(clientID):
+def moveTorso(clientID,theta,test=False):
 	print("Moving torso\n")
 	# Get "handle" to the torso joint
 	result, joint_handle = vrep.simxGetObjectHandle(clientID, "Baxter_rotationJoint", vrep.simx_opmode_blocking)
 	if result != vrep.simx_return_ok:
 	    raise Exception("Could not get object handle for rotation joint")
-
-	testJoint(joint_handle, 0, clientID)
+	if test:
+		testJoint(joint_handle, 0, clientID)
+	else:
+		vrep.simxSetJointTargetPosition(clientID, joint_handle, theta, vrep.simx_opmode_oneshot)
 
 # Move the gripper
 def moveGripper1(clientID):
@@ -217,7 +219,7 @@ def moveArm(arm, clientID, thetas):
 def forwardKinematics(M, S, thetas):
 
 	product = 1
-	for s in range(7):
+	for s in range(len(thetas)):
 		product = np.dot(product, expm(bracket(S[:,s])*thetas[s]))
 
 	T = np.dot(product, M)
@@ -226,7 +228,7 @@ def forwardKinematics(M, S, thetas):
 # Find a set of joint variables to reach the goal pose
 def inverseKinematics(goal, M, S):
 	theta = np.random.rand(S.shape[1])
-
+	# theta = np.zeros(S.shape[1])
 	V_error = 5
 	theta_error = 5
 	tries = 0
@@ -240,7 +242,7 @@ def inverseKinematics(goal, M, S):
 		J = spaceJacobian(S, theta)
 
 		# Theta = Theta + [ (JT * J + 0.00001*I)^-1 * (JT * V) ] - [ (I - J#J) * Theta ]
-		theta_dot = np.dot(np.linalg.inv(np.dot(np.transpose(J), J) + 0.1*np.identity(7)), np.dot(np.transpose(J), V)) - np.dot(np.identity(7) - np.dot(np.linalg.pinv(J), J), theta)
+		theta_dot = np.dot(np.linalg.inv(np.dot(np.transpose(J), J) + 0.1*np.identity(8)), np.dot(np.transpose(J), V)) - np.dot(np.identity(8) - np.dot(np.linalg.pinv(J), J), theta)
 		theta = theta + theta_dot
 		V_error = np.linalg.norm(V)
 		theta_error =  np.linalg.norm(theta_dot)
@@ -252,19 +254,21 @@ def inverseKinematics(goal, M, S):
 # Check if a set of thetas found from inverse kinematics are possible for Baxter
 def checkThetas(thetas, arm):
 	#print(thetas)
-	if thetas[0] < -1.7016 or thetas[0] > 1.7016:
+	if thetas[0] < -2.967 or thetas[0] > 2.967:
+		return False	
+	if thetas[1] < -1.7016 or thetas[1] > 1.7016:
 		return False
-	if thetas[1] < -2.147 or thetas[1] > 1.047:
+	if thetas[2] < -2.147 or thetas[2] > 1.047:
 		return False
-	if thetas[2] < -3.0541 or thetas[2] > 3.0541:
+	if thetas[3] < -3.0541 or thetas[3] > 3.0541:
 		return False
-	if thetas[3] < -0.05 or thetas[3] > 2.618:
+	if thetas[4] < -0.05 or thetas[4] > 2.618:
 		return False
-	if thetas[4] < -3.059 or thetas[4] > 3.059:
+	if thetas[5] < -3.059 or thetas[5] > 3.059:
 		return False
-	if thetas[5] < -1.5707 or thetas[5] > 2.094:
+	if thetas[6] < -1.5707 or thetas[6] > 2.094:
 		return False
-	if thetas[6] < -3.059 or thetas[6] > 3.059:
+	if thetas[7] < -3.059 or thetas[7] > 3.059:
 		return False
 	return True
 
@@ -327,13 +331,15 @@ def moveArmAndFrame(clientID, M, S, pose, arm, frame):
 
 		print("++++++++++++++++++++++++++++++++++++++")
 		validThetas = checkThetas(thetas, arm)
+		# validThetas = True
 		tries += 1
 
 	if not validThetas:
 		# Couldn't find a valid set of thetas to reach the goal pose
-		moveTorso(clientID)
+		moveTorso(clientID, 0, test=True)
 	else:
-		moveArm(arm, clientID, thetas)
+		moveTorso(clientID, thetas[0])
+		moveArm(arm, clientID, thetas[1:])
 
 	time.sleep(3)
 
@@ -383,49 +389,51 @@ def main(args):
 				      [0, 1, 0, 1.2445],
 				      [0, 0, 0, 1]])
 
-	SLeft = np.zeros((6,7))
-	SLeft[:,0] = screw(0, 0, 1, -0.1278, 0.2630, 0)
-	SLeft[:,1] = screw(-1, 0, 0, -0.1278, 0.310, 1.3244)
-	SLeft[:,2] = screw(0, 1, 0, -0.1278, 0.4140, 1.3244)
-	SLeft[:,3] = screw(-1, 0, 0, -0.1278, 0.6765, 1.2554)
-	SLeft[:,4] = screw(0, 1, 0, -0.1278, 0.7801, 1.2554)
-	SLeft[:,5] = screw(-1, 0, 0, -0.1278, 1.0508, 1.2454)
-	SLeft[:,6] = screw(0, 1, 0, -0.1278, 1.1667, 1.2454)
+	SLeft = np.zeros((6,8))
+	SLeft[:,0] = screw(0, 0, 1, 0.0103, 0.0147, 0)
+	SLeft[:,1] = screw(0, 0, 1, -0.1278, 0.2630, 0)
+	SLeft[:,2] = screw(-1, 0, 0, -0.1278, 0.310, 1.3244)
+	SLeft[:,3] = screw(0, 1, 0, -0.1278, 0.4140, 1.3244)
+	SLeft[:,4] = screw(-1, 0, 0, -0.1278, 0.6765, 1.2554)
+	SLeft[:,5] = screw(0, 1, 0, -0.1278, 0.7801, 1.2554)
+	SLeft[:,6] = screw(-1, 0, 0, -0.1278, 1.0508, 1.2454)
+	SLeft[:,7] = screw(0, 1, 0, -0.1278, 1.1667, 1.2454)
 
 	MRight = np.array([[0, 0, 1, 1.332],
 				       [1, 0, 0, -0.12287],
 				       [0, 1, 0, 1.2445],
 				       [0, 0, 0, 1]])
 
-	SRight = np.zeros((6,7))
-	SRight[:,0] = screw(0, 0, 1, 0.2387, -0.1230, 0)
-	SRight[:,1] = screw(0, 1, 0, 0.3077, -0.1230, 1.3244)
-	SRight[:,2] = screw(1, 0, 0, 0.4097, -0.1230, 1.3244)
-	SRight[:,3] = screw(0, 1, 0, 0.6722, -0.1230, 1.2554)
-	SRight[:,4] = screw(1, 0, 0, 0.7758, -0.1230, 1.2554)
-	SRight[:,5] = screw(0, 1, 0, 1.0465, -0.1230, 1.2454)
-	SRight[:,6] = screw(1, 0, 0, 1.1624, -0.1230, 1.2454)
+	SRight = np.zeros((6,8))
+	SRight[:,0] = screw(0, 0, 1, 0.0103, 0.0147, 0)
+	SRight[:,1] = screw(0, 0, 1, 0.2387, -0.1230, 0)
+	SRight[:,2] = screw(0, 1, 0, 0.3077, -0.1230, 1.3244)
+	SRight[:,3] = screw(1, 0, 0, 0.4097, -0.1230, 1.3244)
+	SRight[:,4] = screw(0, 1, 0, 0.6722, -0.1230, 1.2554)
+	SRight[:,5] = screw(1, 0, 0, 0.7758, -0.1230, 1.2554)
+	SRight[:,6] = screw(0, 1, 0, 1.0465, -0.1230, 1.2454)
+	SRight[:,7] = screw(1, 0, 0, 1.1624, -0.1230, 1.2454)
 
 
 	# Get user input for goal pose and do inverse kinematics to go to
 	# goal pose.  Repeat 3 times.
-	for i in range(1):
+	for i in range(4):
 
 		# Get user input for a goal pose
-		# arm = input("Choose the arm to move (left or right): ")
-		# x = int(input("Enter an x-translation: "))
-		# y = int(input("Enter an y-translation: "))
-		# z = int(input("Enter an z-translation: "))
-		# alpha = int(input("Enter a rotation (in degrees) around the x-axis: "))
-		# beta = int(input("Enter a rotation (in degrees) around the y-axis: "))
-		# gamma = int(input("Enter a rotation (in degrees) around the z-axis: "))
-		arm = "left"
-		x = 0
-		y = 0
-		z = 1.2
-		alpha = 0
-		beta = 0
-		gamma = 0
+		arm = input("Choose the arm to move (left or right): ")
+		x = float(input("Enter an x-translation: "))
+		y = float(input("Enter an y-translation: "))
+		z = float(input("Enter an z-translation: "))
+		alpha = int(input("Enter a rotation (in degrees) around the x-axis: "))
+		beta = int(input("Enter a rotation (in degrees) around the y-axis: "))
+		gamma = int(input("Enter a rotation (in degrees) around the z-axis: "))
+		# arm = "left"
+		# x = 0
+		# y = 1.2
+		# z = 1.9
+		# alpha = -60
+		# beta = 0
+		# gamma = 0
 
 		pose = poseFromTranslationAndRotation(x, y, z, alpha, beta, gamma)
 
