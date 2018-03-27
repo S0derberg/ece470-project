@@ -209,7 +209,7 @@ def moveArm(arm, clientID, thetas):
 		    raise Exception("Could not get object handle for {} arm joint {}".format(arm, i+1))
 
 		# Set the desired value of the joint variable
-		vrep.simxSetJointTargetPosition(clientID, joint_handle, degToRad(thetas[i]), vrep.simx_opmode_oneshot)
+		vrep.simxSetJointTargetPosition(clientID, joint_handle, thetas[i], vrep.simx_opmode_oneshot)
 
 
 
@@ -218,7 +218,7 @@ def forwardKinematics(M, S, thetas):
 
 	product = 1
 	for s in range(7):
-		product = np.dot(product, expm(bracket(S[:,s])*degToRad(thetas[s])))
+		product = np.dot(product, expm(bracket(S[:,s])*thetas[s]))
 
 	T = np.dot(product, M)
 	return T
@@ -227,21 +227,41 @@ def forwardKinematics(M, S, thetas):
 def inverseKinematics(goal, M, S):
 	theta = np.random.rand(S.shape[1])
 
-	error = 5
-	while error > 0.5:
+	V_error = 5
+	theta_error = 5
+	while V_error > 0.1 or theta_error > 0.01:
 		T = forwardKinematics(M, S, theta)
 		V_bracket = logm(np.dot(goal, np.linalg.inv(T)))
 		V = twist(V_bracket)
 		J = spaceJacobian(S, theta)
-		#theta_dot = np.dot(np.dot(np.transpose(J), np.linalg.inv(np.dot(J, np.transpose(J)))), V)
 
-		# (JT * J + 0.00001*I)^-1 * (JT * V)
-		theta_dot = np.dot(np.linalg.inv(np.dot(np.transpose(J), J) + 0.00001*np.identity(7)), np.dot(np.transpose(J), V))
+		# Theta = Theta + [ (JT * J + 0.00001*I)^-1 * (JT * V) ] - [ (I - J#J) * Theta ]
+		theta_dot = np.dot(np.linalg.inv(np.dot(np.transpose(J), J) + 0.1*np.identity(7)), np.dot(np.transpose(J), V)) - np.dot(np.identity(7) - np.dot(np.linalg.pinv(J), J), theta)
 		theta = theta + theta_dot
-		error = np.linalg.norm(V)
-		print("Error: {}".format(error))
+		V_error = np.linalg.norm(V)
+		theta_error =  np.linalg.norm(theta_dot)
+		print("V Error: {}, Theta Error: {}".format(V_error, theta_error))
 
 	return theta
+
+# Check if a set of thetas found from inverse kinematics are possible for Baxter
+def checkThetas(thetas, arm):
+	#print(thetas)
+	if thetas[0] < -1.7016 or thetas[0] > 1.7016:
+		return False
+	if thetas[1] < -2.147 or thetas[1] > 1.047:
+		return False
+	if thetas[2] < -3.0541 or thetas[2] > 3.0541:
+		return False
+	if thetas[3] < -0.05 or thetas[3] > 2.618:
+		return False
+	if thetas[4] < -3.059 or thetas[4] > 3.059:
+		return False
+	if thetas[5] < -1.5707 or thetas[5] > 2.094:
+		return False
+	if thetas[6] < -3.059 or thetas[6] > 3.059:
+		return False
+	return True
 
 
 # Move the dummy frames to a pose calculated with Forward Kinematics and then
@@ -289,7 +309,11 @@ def moveArmAndFrame(clientID, M, S, pose, arm, frame):
 
 	time.sleep(2)
 
-	thetas = inverseKinematics(pose, M, S)
+	validThetas = False
+	while not validThetas:
+		thetas = inverseKinematics(pose, M, S)
+		print("++++++++++++++++++++++++++++++++++++++")
+		validThetas = checkThetas(thetas, arm)
 
 	moveArm(arm, clientID, thetas)
 
@@ -377,21 +401,15 @@ def main(args):
 		# alpha = int(input("Enter a rotation (in degrees) around the x-axis: "))
 		# beta = int(input("Enter a rotation (in degrees) around the y-axis: "))
 		# gamma = int(input("Enter a rotation (in degrees) around the z-axis: "))
-		arm = "right"
-		x = 1
+		arm = "left"
+		x = -0.6
 		y = 0.5
-		z = 1.5
+		z = 1.2
 		alpha = 0
-		beta = 90
+		beta = 0
 		gamma = 0
 
 		pose = poseFromTranslationAndRotation(x, y, z, alpha, beta, gamma)
-
-		# USE INVERSE KINEMATICS TO FIND A SET OF JOINT VARIABLES
-
-		# VERIFY THAT THE THETAS ARE VALID. IF NOT, RUN IK AGAIN
-
-		# GO TO THOSE THETAS, OR IF THE POSE IS OUT OF RANGE THEN INDICATE THAT
 
 		if arm == "left":
 			M = MLeft
@@ -403,6 +421,10 @@ def main(args):
 			print("Please enter left or right for the arm")
 			continue
 
+
+		# VERIFY THAT THE THETAS ARE VALID. IF NOT, RUN IK AGAIN
+
+		# GO TO THOSE THETAS, OR IF THE POSE IS OUT OF RANGE THEN INDICATE THAT
 
 		moveArmAndFrame(clientID, M, S, pose, arm, "ReferenceFrame" + str(i))
 
