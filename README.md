@@ -22,35 +22,23 @@ This part is to simulate inverse kinematics.  It can be run with the command "py
 Our additional work for this week was to add the use of the torso rotation joint.  We did this by adding another screw axis to the beginning of both the left and right screw matrices.  Then the inverse kinematics process takes the ability to rotate the torso into account.  Now our robot can reach more goal poses behind it and prefers to reach these by rotating its torso first and then minimally rotating the arm joints rather than performing some complicated arm rotation.
 
 ### How To Dab
-Enter these values for the user input:
-Arm: right
-
-X-Translation: 0.5
-
-Y-Translation: 0
-
-Z-Translation: 1.8
-
-X-Rotation: -90
-
-Y-Rotation: 0
-
-Z-Rotation: 0
-
-
-Arm: left
-
-X-Translation: 0
-
-Y-Translation: 1.2
-
-Z-Translation: 1.9
-
-X-Rotation: -60
-
-Y-Rotation: 0
-
-Z-Rotation: 0
+Enter these values for the user input:<br>
+Arm: right<br>
+X-Translation: 0.5<br>
+Y-Translation: 0<br>
+Z-Translation: 1.8<br>
+X-Rotation: -90<br>
+Y-Rotation: 0<br>
+Z-Rotation: 0<br>
+<br>
+After that do these:<br>
+Arm: left<br>
+X-Translation: 0<br>
+Y-Translation: 1.2<br>
+Z-Translation: 1.9<br>
+X-Rotation: -60<br>
+Y-Rotation: 0<br>
+Z-Rotation: 0<br>
 
 # For OS Other Than Windows
 The above How-to may not cover the exact steps you need to take if your operating system is not Windows.  An alternative would be to just take our python files and put it in your working V-Rep folder, making sure that your folder also has the correct dependent files that work on your OS.  You'll also still need to put our .ttt scene file in your scenes folder to have access to it in V-Rep.
