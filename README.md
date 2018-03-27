@@ -24,19 +24,32 @@ Our additional work for this week was to add the use of the torso rotation joint
 ### How To Dab
 Enter these values for the user input:
 Arm: right
+
 X-Translation: 0.5
+
 Y-Translation: 0
+
 Z-Translation: 1.8
+
 X-Rotation: -90
+
 Y-Rotation: 0
+
 Z-Rotation: 0
 
+
 Arm: left
+
 X-Translation: 0
+
 Y-Translation: 1.2
+
 Z-Translation: 1.9
+
 X-Rotation: -60
+
 Y-Rotation: 0
+
 Z-Rotation: 0
 
 # For OS Other Than Windows
