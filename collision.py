@@ -9,13 +9,13 @@ from scipy.linalg import expm, logm
 # from Professor Bretl.
 
 rack_names = ["Dummy_rack_1", "Dummy_rack_2", "Dummy_rack_3", "Dummy_rack_4", "Dummy_rack_5", "Dummy_rack_6", "Dummy_rack_7", "Dummy_rack_8", "Dummy_rack_9", "Dummy_rack_10", "Dummy_rack_11", "Dummy_rack_12"]
-rack_radii = 0.5
+rack_diam = 0.5
 
 body_names = ["Dummy_body_high", "Dummy_body_low"]
-body_radii = [0.35, 0.4]
+body_diam = [0.35, 0.4]
 
 arm_names = ["Dummy_left_joint1", "Dummy_left_joint2", "Dummy_left_joint4", "Dummy_left_joint6", "Dummy_left_hand", "Dummy_right_joint1", "Dummy_right_joint2", "Dummy_right_joint4", "Dummy_right_joint6", "Dummy_right_hand"]
-arm_radii = [0.25, 0.3, 0.3, 0.3, 0.2, 0.25, 0.3, 0.3, 0.3, 0.2]
+arm_diam = [0.25, 0.3, 0.3, 0.3, 0.2, 0.25, 0.3, 0.3, 0.3, 0.2]
 
 # Get the skew symmetric matrix of an array
 def skew(arr):
@@ -229,7 +229,7 @@ def forwardKinematics(M, S, thetas):
 
 	product = 1
 	for s in range(len(thetas)):
-		product = np.dot(product, expm(bracket(S[:,s])*thetas[s]))
+		product = np.dot(product, expm(bracket(S[:,s])*degToRad(thetas[s])))
 
 	T = np.dot(product, M)
 	return T
@@ -372,8 +372,31 @@ def updateCenters(centers, SLeft, SRight, thetas):
 	joints_to_add = [0,1,3,5,7]
 	for i in range(5):
 		old_position = np.block([centers[i], 1])
-		new_position = forwardKinematics(old_position, SLeft[:,:joints_to_add[i]+1], thetas[:joints_to_add[i]+1])
+		new_position = forwardKinematics(old_position, SLeft[:,:joints_to_add[i]+1], left_thetas[:joints_to_add[i]+1])
 		new_centers.append(new_position[0:3])
+
+	for j in range(5):
+		old_position = np.block([centers[j+5], 1])
+		new_position = forwardKinematics(old_position, SRight[:,:joints_to_add[j]+1], right_thetas[:joints_to_add[j]+1])
+		new_centers.append(new_position[0:3])
+
+	return new_centers
+
+
+# Check for collision with the rack
+def checkRackCollision(arm_centers, rack_centers):
+
+	for a in range(10):
+		center = arm_centers[a]
+
+		for r in range(12):
+			rack = rack_centers[r]
+
+			if np.linalg.norm(center - rack) < arm_diam[a]/2 + rack_diam/2:
+				print(a, r)
+				return True
+
+	return False
 
 
 
@@ -430,7 +453,7 @@ def main(args):
 	for j in range(12):
 		result, dummy_handle = vrep.simxGetObjectHandle(clientID, rack_names[j], vrep.simx_opmode_blocking)
 		if result != vrep.simx_return_ok:
-		    raise Exception("Could not get object handle for the Reference Frame object")
+		    raise Exception("Could not get object handle for the Dummy object")
 
 		status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
 		rack_centers.append(np.array(position))
@@ -438,7 +461,7 @@ def main(args):
 	for k in range(2):
 		result, dummy_handle = vrep.simxGetObjectHandle(clientID, body_names[k], vrep.simx_opmode_blocking)
 		if result != vrep.simx_return_ok:
-		    raise Exception("Could not get object handle for the Reference Frame object")
+		    raise Exception("Could not get object handle for the Dummy object")
 
 		status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
 		body_centers.append(np.array(position))
@@ -446,7 +469,7 @@ def main(args):
 	for h in range(10):
 		result, dummy_handle = vrep.simxGetObjectHandle(clientID, arm_names[h], vrep.simx_opmode_blocking)
 		if result != vrep.simx_return_ok:
-		    raise Exception("Could not get object handle for the Reference Frame object")
+		    raise Exception("Could not get object handle for the Dummy object")
 
 		status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
 		arm_centers.append(np.array(position))
@@ -454,6 +477,8 @@ def main(args):
 
 
 	thetas = [0, -20, 10, -30, 20, -40, -30, 45]
+	thetas[0] += 25
+	thetas[1] += 50
 	for i in range(1):
 
 
@@ -461,10 +486,15 @@ def main(args):
 
 		updated_arm_centers = updateCenters(arm_centers, SLeft, SRight, thetas)
 
-		thetas[0] += 5
-		thetas[1] += 10
+		# thetas[0] += 5
+		# thetas[1] += 10
 
-		print(updated_arm_centers)
+		rack_collision = checkRackCollision(updated_arm_centers, rack_centers)
+		print(rack_collision)
+
+		time.sleep(2)
+
+		#self_collision = checkSelfCollision(updated_arm_centers, body_centers)
 
 	# theta = 180
 	# moveTorso(clientID, theta)
