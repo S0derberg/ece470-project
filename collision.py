@@ -211,7 +211,7 @@ def moveArm(arm, clientID, thetas):
 		    raise Exception("Could not get object handle for {} arm joint {}".format(arm, i+1))
 
 		# Set the desired value of the joint variable
-		vrep.simxSetJointTargetPosition(clientID, joint_handle, thetas[i], vrep.simx_opmode_oneshot)
+		vrep.simxSetJointTargetPosition(clientID, joint_handle, degToRad(thetas[i]), vrep.simx_opmode_oneshot)
 
 
 
@@ -275,16 +275,7 @@ def checkThetas(thetas, arm):
 
 # Move the dummy frames to a pose calculated with Forward Kinematics and then
 # move the arms to the provided joint variables
-def moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas, frame1, frame2):
-
-	# Get handles for the frames so we can move them back to the origin when we're done with them
-	result, frame_handle = vrep.simxGetObjectHandle(clientID, frame1, vrep.simx_opmode_blocking)
-	if result != vrep.simx_return_ok:
-	    raise Exception("Could not get object handle for the Reference Frame object")
-
-	result, frame_handle0 = vrep.simxGetObjectHandle(clientID, frame2, vrep.simx_opmode_blocking)
-	if result != vrep.simx_return_ok:
-	    raise Exception("Could not get object handle for the Reference Frame object")
+def moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas):
 
 	setOne = thetas
 	setTwo = [-1*thetas[0], thetas[1], -1*thetas[2], thetas[3], -1*thetas[4], thetas[5], thetas[6]]
@@ -292,18 +283,10 @@ def moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas, frame1, fr
 	poseOne = forwardKinematics(MLeft, SLeft, setOne)
 	poseTwo = forwardKinematics(MRight, SRight, setTwo)
 
-	moveFrame(clientID, frame1, poseOne)
-	moveFrame(clientID, frame2, poseTwo)
-
-	time.sleep(2)
-
 	moveArm("left", clientID, setOne)
 	moveArm("right", clientID, setTwo)
 
-	time.sleep(3)
 
-	vrep.simxSetObjectPosition(clientID, frame_handle, -1, [0,0,0], vrep.simx_opmode_oneshot)
-	vrep.simxSetObjectPosition(clientID, frame_handle0, -1, [0,0,0], vrep.simx_opmode_oneshot)
 
 # move the arm using inverse kinematics
 def moveArmAndFrame(clientID, M, S, pose, arm, frame):
@@ -414,49 +397,17 @@ def main(args):
 	SRight[:,6] = screw(0, 1, 0, 1.0465, -0.1230, 1.2454)
 	SRight[:,7] = screw(1, 0, 0, 1.1624, -0.1230, 1.2454)
 
-
-	# Get user input for goal pose and do inverse kinematics to go to
-	# goal pose.  Repeat 3 times.
-	for i in range(1):
-
-		# Get user input for a goal pose
-
-		# arm = input("Choose the arm to move (left or right): ")
-		# x = float(input("Enter an x-translation: "))
-		# y = float(input("Enter an y-translation: "))
-		# z = float(input("Enter an z-translation: "))
-		# alpha = int(input("Enter a rotation (in degrees) around the x-axis: "))
-		# beta = int(input("Enter a rotation (in degrees) around the y-axis: "))
-		# gamma = int(input("Enter a rotation (in degrees) around the z-axis: "))
-		arm = "left"
-		x = 0
-		y = 1.2
-		z = 4.9
-		alpha = -60
-		beta = 0
-		gamma = 0
-
-		pose = poseFromTranslationAndRotation(x, y, z, alpha, beta, gamma)
-
-		if arm == "left":
-			M = MLeft
-			S = SLeft
-		elif arm == "right":
-			M = MRight
-			S = SRight
-		else:
-			print("Please enter left or right for the arm")
-			continue
+	thetas = [-20, 10, -30, 20, -40, -30, 45]
+	for i in range(10):
 
 
-		# VERIFY THAT THE THETAS ARE VALID. IF NOT, RUN IK AGAIN
+		moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas)
 
-		# GO TO THOSE THETAS, OR IF THE POSE IS OUT OF RANGE THEN INDICATE THAT
+		thetas[0] += 5
+		thetas[1] += 10
 
-		moveArmAndFrame(clientID, M, S, pose, arm, "ReferenceFrame" + str(i))
 
-		time.sleep(2)
-
+	time.sleep(2)
 
 	# Stop simulation
 	vrep.simxStopSimulation(clientID, vrep.simx_opmode_oneshot)
