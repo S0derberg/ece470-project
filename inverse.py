@@ -419,10 +419,15 @@ def main(args):
 		# alpha = int(input("Enter a rotation (in degrees) around the x-axis: "))
 		# beta = int(input("Enter a rotation (in degrees) around the y-axis: "))
 		# gamma = int(input("Enter a rotation (in degrees) around the z-axis: "))
-		arm = "left"
-		x = 0
-		y = 0
+		#arm = "left"
+		# x = -0.6
+		# y = 0.5
+		# z = 1.2
+		arm = "right"
+		x = 0.5
+		y = 0.5
 		z = 1.2
+
 		alpha = 0
 		beta = 0
 		gamma = 0
