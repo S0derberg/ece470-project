@@ -366,7 +366,7 @@ def poseFromTranslationAndRotation(x, y, z, alpha, beta, gamma):
 def updateCenters(centers, SLeft, SRight, thetas):
 	new_centers = []
 
-	left_thetas = thetas
+	left_thetas = thetas.copy()
 	right_thetas = [thetas[0], -1*thetas[1], thetas[2], -1*thetas[3], thetas[4], -1*thetas[5], thetas[6], thetas[7]]
 
 	joints_to_add = [0,1,3,5,7]
@@ -394,6 +394,9 @@ def checkRackCollision(arm_centers, rack_centers):
 
 			if np.linalg.norm(center - rack) < arm_diam[a]/2 + rack_diam/2:
 				print(a, r)
+				print(center, rack)
+				print("Distance: " + str(np.linalg.norm(center - rack)))
+				print("Radius sum: " + str(arm_diam[a]/2 + rack_diam/2))
 				return True
 
 	return False
@@ -477,17 +480,17 @@ def main(args):
 
 
 	thetas = [0, -20, 10, -30, 20, -40, -30, 45]
-	thetas[0] += 25
-	thetas[1] += 50
-	for i in range(1):
+	# thetas[0] += 25
+	# thetas[1] += 50
+	for i in range(10):
 
-
+		moveTorso(clientID, thetas[0])
 		moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas[1:])
 
 		updated_arm_centers = updateCenters(arm_centers, SLeft, SRight, thetas)
 
-		# thetas[0] += 5
-		# thetas[1] += 10
+		thetas[0] += 5
+		thetas[1] += 10
 
 		rack_collision = checkRackCollision(updated_arm_centers, rack_centers)
 		print(rack_collision)
