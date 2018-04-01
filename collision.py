@@ -8,6 +8,15 @@ from scipy.linalg import expm, logm
 # Run our Baxter Demonstration. Based off the sample code in 'test.py'
 # from Professor Bretl.
 
+rack_names = ["Dummy_rack_1", "Dummy_rack_2", "Dummy_rack_3", "Dummy_rack_4", "Dummy_rack_5", "Dummy_rack_6", "Dummy_rack_7", "Dummy_rack_8", "Dummy_rack_9", "Dummy_rack_10", "Dummy_rack_11", "Dummy_rack_12"]
+rack_radii = 0.5
+
+body_names = ["Dummy_body_high", "Dummy_body_low"]
+body_radii = [0.35, 0.4]
+
+arm_names = ["Dummy_left_joint1", "Dummy_left_joint2", "Dummy_left_joint4", "Dummy_left_joint6", "Dummy_left_hand", "Dummy_right_joint1", "Dummy_right_joint2", "Dummy_right_joint4", "Dummy_right_joint6", "Dummy_right_hand"]
+arm_radii = [0.25, 0.3, 0.3, 0.3, 0.2, 0.25, 0.3, 0.3, 0.3, 0.2]
+
 # Get the skew symmetric matrix of an array
 def skew(arr):
 	mat = np.zeros((3,3))
@@ -165,7 +174,7 @@ def moveTorso(clientID,theta,test=False):
 	if test:
 		testJoint(joint_handle, 0, clientID)
 	else:
-		vrep.simxSetJointTargetPosition(clientID, joint_handle, theta, vrep.simx_opmode_oneshot)
+		vrep.simxSetJointTargetPosition(clientID, joint_handle, degToRad(theta), vrep.simx_opmode_oneshot)
 
 # Move the gripper
 def moveGripper1(clientID):
@@ -353,6 +362,22 @@ def poseFromTranslationAndRotation(x, y, z, alpha, beta, gamma):
 	return pose
 
 
+# Update sphere centers using forward kinematics
+def updateCenters(centers, SLeft, SRight, thetas):
+	new_centers = []
+
+	left_thetas = thetas
+	right_thetas = [thetas[0], -1*thetas[1], thetas[2], -1*thetas[3], thetas[4], -1*thetas[5], thetas[6], thetas[7]]
+
+	joints_to_add = [0,1,3,5,7]
+	for i in range(5):
+		old_position = np.block([centers[i], 1])
+		new_position = forwardKinematics(old_position, SLeft[:,:joints_to_add[i]+1], thetas[:joints_to_add[i]+1])
+		new_centers.append(new_position[0:3])
+
+
+
+
 # Connect to V-Rep and start the simulation
 def main(args):
 
@@ -397,14 +422,52 @@ def main(args):
 	SRight[:,6] = screw(0, 1, 0, 1.0465, -0.1230, 1.2454)
 	SRight[:,7] = screw(1, 0, 0, 1.1624, -0.1230, 1.2454)
 
-	thetas = [-20, 10, -30, 20, -40, -30, 45]
-	for i in range(10):
+
+	rack_centers = []
+	body_centers = []
+	arm_centers = []
+
+	for j in range(12):
+		result, dummy_handle = vrep.simxGetObjectHandle(clientID, rack_names[j], vrep.simx_opmode_blocking)
+		if result != vrep.simx_return_ok:
+		    raise Exception("Could not get object handle for the Reference Frame object")
+
+		status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
+		rack_centers.append(np.array(position))
+
+	for k in range(2):
+		result, dummy_handle = vrep.simxGetObjectHandle(clientID, body_names[k], vrep.simx_opmode_blocking)
+		if result != vrep.simx_return_ok:
+		    raise Exception("Could not get object handle for the Reference Frame object")
+
+		status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
+		body_centers.append(np.array(position))
+
+	for h in range(10):
+		result, dummy_handle = vrep.simxGetObjectHandle(clientID, arm_names[h], vrep.simx_opmode_blocking)
+		if result != vrep.simx_return_ok:
+		    raise Exception("Could not get object handle for the Reference Frame object")
+
+		status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
+		arm_centers.append(np.array(position))
 
 
-		moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas)
+
+	thetas = [0, -20, 10, -30, 20, -40, -30, 45]
+	for i in range(1):
+
+
+		moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas[1:])
+
+		updated_arm_centers = updateCenters(arm_centers, SLeft, SRight, thetas)
 
 		thetas[0] += 5
 		thetas[1] += 10
+
+		print(updated_arm_centers)
+
+	# theta = 180
+	# moveTorso(clientID, theta)
 
 
 	time.sleep(2)
