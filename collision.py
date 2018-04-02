@@ -425,11 +425,21 @@ def checkCollision(arm_centers, body_centers, rack_centers):
 # Notify of collision with a colored dummy
 def notifyCollision(clientID, collision, offset):
 
-	result, handle = vrep.simxCreateDummy(clientID, 0.3, None, vrep.simx_opmode_blocking)
+	# Create red dummy if in collsion
+	if collision:
+		result, handle = vrep.simxCreateDummy(clientID, 0.3, [255,0,0] , vrep.simx_opmode_blocking)
 
-	vrep.simxSetObjectPosition(clientID, handle, -1, [1.5, -2.5+(0.35*offset), 0], vrep.simx_opmode_oneshot)
+		vrep.simxSetObjectPosition(clientID, handle, -1, [1.5, -2.5+(0.35*offset), 0], vrep.simx_opmode_oneshot)
 
-	return handle
+		return handle
+
+	# Create green dummy if in collision
+	else:
+		result, handle = vrep.simxCreateDummy(clientID, 0.3,[0,255,0], vrep.simx_opmode_blocking)
+
+		vrep.simxSetObjectPosition(clientID, handle, -1, [1.5,-2.5+(0.35*offset), 0], vrep.simx_opmode_oneshot)
+
+		return handle
 
 # Clear the dummies
 def clearNotifications(clientID, dummies):
@@ -534,7 +544,7 @@ def main(args):
 	dummy_list = []
 
 	# Hit the rack
-	thetas2 = [20, -20, 10, -30, 20, -40, -30, 45]
+	thetas2 = [20, -20, 0, -30, 20, -40, -30, 45]
 	for j in range(14):
 
 		moveTorso(clientID, thetas2[0])
@@ -555,11 +565,13 @@ def main(args):
 		thetas2[0] += 5
 		thetas2[1] += 10
 
+	time.sleep(2)
+
 	clearNotifications(clientID, dummy_list)
 	dummy_list = []
 
 	# Bad curl, self-collision
-	thetas3 = [0, -20, 50, -90, 0, 0, 0, 90]
+	thetas3 = [-45, -20, 50, -90, 0, 0, 0, 90]
 	for k in range(14):
 
 		moveTorso(clientID, thetas3[0])
