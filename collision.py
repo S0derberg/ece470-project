@@ -11,11 +11,14 @@ from scipy.linalg import expm, logm
 rack_names = ["Dummy_rack_1", "Dummy_rack_2", "Dummy_rack_3", "Dummy_rack_4", "Dummy_rack_5", "Dummy_rack_6", "Dummy_rack_7", "Dummy_rack_8", "Dummy_rack_9", "Dummy_rack_10", "Dummy_rack_11", "Dummy_rack_12"]
 rack_diam = 0.5
 
-body_names = ["Dummy_body_high", "Dummy_body_low"]
-body_diam = [0.35, 0.4]
+body_names = ["Dummy_body_low"]
+body_diam = [0.4]
 
 arm_names = ["Dummy_left_joint1", "Dummy_left_joint2", "Dummy_left_joint4", "Dummy_left_joint6", "Dummy_left_hand", "Dummy_right_joint1", "Dummy_right_joint2", "Dummy_right_joint4", "Dummy_right_joint6", "Dummy_right_hand"]
 arm_diam = [0.25, 0.3, 0.3, 0.3, 0.2, 0.25, 0.3, 0.3, 0.3, 0.2]
+
+self_diam = body_diam.copy()
+self_diam.extend(arm_diam)
 
 # Get the skew symmetric matrix of an array
 def skew(arr):
@@ -363,45 +366,75 @@ def poseFromTranslationAndRotation(x, y, z, alpha, beta, gamma):
 
 
 # Update sphere centers using forward kinematics
-def updateCenters(centers, SLeft, SRight, thetas):
+def updateCenters(clientID, centers, SLeft, SRight, thetas, FK=True):
 	new_centers = []
 
-	left_thetas = thetas.copy()
-	right_thetas = [thetas[0], -1*thetas[1], thetas[2], -1*thetas[3], thetas[4], -1*thetas[5], thetas[6], thetas[7]]
+	if FK:
+		left_thetas = thetas.copy()
+		right_thetas = [thetas[0], -1*thetas[1], thetas[2], -1*thetas[3], thetas[4], -1*thetas[5], thetas[6], thetas[7]]
 
-	joints_to_add = [0,1,3,5,7]
-	for i in range(5):
-		old_position = np.block([centers[i], 1])
-		new_position = forwardKinematics(old_position, SLeft[:,:joints_to_add[i]+1], left_thetas[:joints_to_add[i]+1])
-		new_centers.append(new_position[0:3])
+		joints_to_add = [0,1,3,5,7]
+		for i in range(5):
+			old_position = np.block([centers[i], 1])
+			new_position = forwardKinematics(old_position, SLeft[:,:joints_to_add[i]+1], left_thetas[:joints_to_add[i]+1])
+			new_centers.append(new_position[0:3])
 
-	for j in range(5):
-		old_position = np.block([centers[j+5], 1])
-		new_position = forwardKinematics(old_position, SRight[:,:joints_to_add[j]+1], right_thetas[:joints_to_add[j]+1])
-		new_centers.append(new_position[0:3])
+		for j in range(5):
+			old_position = np.block([centers[j+5], 1])
+			new_position = forwardKinematics(old_position, SRight[:,:joints_to_add[j]+1], right_thetas[:joints_to_add[j]+1])
+			new_centers.append(new_position[0:3])
+
+	else:
+		new_centers = []
+		for h in range(len(arm_names)):
+			result, dummy_handle = vrep.simxGetObjectHandle(clientID, arm_names[h], vrep.simx_opmode_blocking)
+			if result != vrep.simx_return_ok:
+				raise Exception("Could not get object handle for the Dummy object")
+
+			status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
+			new_centers.append(np.array(position))
 
 	return new_centers
 
 
-# Check for collision with the rack
-def checkRackCollision(arm_centers, rack_centers):
+# Check for collision
+def checkCollision(arm_centers, body_centers, rack_centers):
 
-	for a in range(10):
+	# Check for rack collision
+	for a in range(len(arm_names)):
 		center = arm_centers[a]
 
-		for r in range(12):
+		for r in range(len(rack_names)):
 			rack = rack_centers[r]
 
 			if np.linalg.norm(center - rack) < arm_diam[a]/2 + rack_diam/2:
-				print(a, r)
-				print(center, rack)
-				print("Distance: " + str(np.linalg.norm(center - rack)))
-				print("Radius sum: " + str(arm_diam[a]/2 + rack_diam/2))
+				return True
+
+	# Check for self-collision
+	self_centers = body_centers.copy()
+	self_centers.extend(arm_centers)
+	total = len(arm_names) + len(body_names)
+	for i in range(total):
+		for j in range(total-1-i):
+			if np.linalg.norm(self_centers[i] - self_centers[j+i+1]) < self_diam[i]/2 + self_diam[j+i+1]/2:
 				return True
 
 	return False
 
 
+# Notify of collision with a colored dummy
+def notifyCollision(clientID, collision, offset):
+
+	result, handle = vrep.simxCreateDummy(clientID, 0.3, None, vrep.simx_opmode_blocking)
+
+	vrep.simxSetObjectPosition(clientID, handle, -1, [1.5, -2.5+(0.35*offset), 0], vrep.simx_opmode_oneshot)
+
+	return handle
+
+# Clear the dummies
+def clearNotifications(clientID, dummies):
+	for handle in dummies:
+		vrep.simxRemoveObject(clientID, handle, vrep.simx_opmode_oneshot)
 
 
 # Connect to V-Rep and start the simulation
@@ -453,7 +486,7 @@ def main(args):
 	body_centers = []
 	arm_centers = []
 
-	for j in range(12):
+	for j in range(len(rack_names)):
 		result, dummy_handle = vrep.simxGetObjectHandle(clientID, rack_names[j], vrep.simx_opmode_blocking)
 		if result != vrep.simx_return_ok:
 		    raise Exception("Could not get object handle for the Dummy object")
@@ -461,7 +494,7 @@ def main(args):
 		status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
 		rack_centers.append(np.array(position))
 
-	for k in range(2):
+	for k in range(len(body_names)):
 		result, dummy_handle = vrep.simxGetObjectHandle(clientID, body_names[k], vrep.simx_opmode_blocking)
 		if result != vrep.simx_return_ok:
 		    raise Exception("Could not get object handle for the Dummy object")
@@ -469,7 +502,7 @@ def main(args):
 		status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
 		body_centers.append(np.array(position))
 
-	for h in range(10):
+	for h in range(len(arm_names)):
 		result, dummy_handle = vrep.simxGetObjectHandle(clientID, arm_names[h], vrep.simx_opmode_blocking)
 		if result != vrep.simx_return_ok:
 		    raise Exception("Could not get object handle for the Dummy object")
@@ -477,33 +510,80 @@ def main(args):
 		status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
 		arm_centers.append(np.array(position))
 
+	dummy_list = []
 
-
-	thetas = [0, -20, 10, -30, 20, -40, -30, 45]
-	# thetas[0] += 25
-	# thetas[1] += 50
+	# Curl, no collision
+	thetas = [-45, -45, 60, 170, 0, 0, 0, 50]
 	for i in range(10):
 
 		moveTorso(clientID, thetas[0])
 		moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas[1:])
 
-		updated_arm_centers = updateCenters(arm_centers, SLeft, SRight, thetas)
+		updated_arm_centers = updateCenters(clientID, arm_centers, SLeft, SRight, thetas)
 
-		thetas[0] += 5
-		thetas[1] += 10
+		collision = checkCollision(updated_arm_centers, body_centers, rack_centers)
+		print(collision)
+		dummy_handle = notifyCollision(clientID, collision, i)
+		dummy_list.append(dummy_handle)
 
-		rack_collision = checkRackCollision(updated_arm_centers, rack_centers)
-		print(rack_collision)
+		thetas[4] += 15
 
-		time.sleep(2)
+	time.sleep(2)
 
-		#self_collision = checkSelfCollision(updated_arm_centers, body_centers)
+	clearNotifications(clientID, dummy_list)
+	dummy_list = []
 
-	# theta = 180
-	# moveTorso(clientID, theta)
+	# Hit the rack
+	thetas2 = [20, -20, 10, -30, 20, -40, -30, 45]
+	for j in range(14):
+
+		moveTorso(clientID, thetas2[0])
+		moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas2[1:])
+
+		# Use this line to update the centers using forward kinematics:
+		#updated_arm_centers = updateCenters(clientID, arm_centers, SLeft, SRight, thetas2)
+
+		# Use this line to update the centers using API calls:
+		updated_arm_centers = updateCenters(clientID, arm_centers, SLeft, SRight, thetas2, FK=False)
+
+
+		collision = checkCollision(updated_arm_centers, body_centers, rack_centers)
+		print(collision)
+		dummy_handle = notifyCollision(clientID, collision, j)
+		dummy_list.append(dummy_handle)
+
+		thetas2[0] += 5
+		thetas2[1] += 10
+
+	clearNotifications(clientID, dummy_list)
+	dummy_list = []
+
+	# Bad curl, self-collision
+	thetas3 = [0, -20, 50, -90, 0, 0, 0, 90]
+	for k in range(14):
+
+		moveTorso(clientID, thetas3[0])
+		moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas3[1:])
+
+		updated_arm_centers = updateCenters(clientID, arm_centers, SLeft, SRight, thetas3)
+
+		collision = checkCollision(updated_arm_centers, body_centers, rack_centers)
+		print(collision)
+		dummy_handle = notifyCollision(clientID, collision, k)
+		dummy_list.append(dummy_handle)
+
+		thetas3[3] += -2
+		thetas3[4] += 10
 
 
 	time.sleep(2)
+
+	clearNotifications(clientID, dummy_list)
+
+	moveTorso(clientID, 0)
+	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, [0,0,0,0,0,0,0])
+
+	time.sleep(1)
 
 	# Stop simulation
 	vrep.simxStopSimulation(clientID, vrep.simx_opmode_oneshot)
