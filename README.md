@@ -49,5 +49,8 @@ X-Rotation: -60<br>
 Y-Rotation: 0<br>
 Z-Rotation: 0<br>
 
+## Part 4
+This part is collision detection.  The command to run this time is "python collision.py".  This will show the robot going into three different base configurations.  At each of these, the robot will move its arms and torso through some path.  The first base configuration has 10 total sub-configurations on the path, and the next two have 14.  Also, to notify of collisions, we place dummy spheres in the scene on the ground.  The sphere will be green if there was no collision and red if there was a collision.  Expect to see collision during the paths starting at the second two configurations (first colliding with the rack, then with itself).  Our extra work this week was to start figuring out the motions for the weightlifting.  The first path resembles a curl, as does the third one (albeit that one curls wrong and collides).
+
 # For OS Other Than Windows
 The above How-to may not cover the exact steps you need to take if your operating system is not Windows.  An alternative would be to just take our python files and put it in your working V-Rep folder, making sure that your folder also has the correct dependent files that work on your OS.  You'll also still need to put our .ttt scene file in your scenes folder to have access to it in V-Rep.

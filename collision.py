@@ -425,11 +425,21 @@ def checkCollision(arm_centers, body_centers, rack_centers):
 # Notify of collision with a colored dummy
 def notifyCollision(clientID, collision, offset):
 
-	result, handle = vrep.simxCreateDummy(clientID, 0.3, None, vrep.simx_opmode_blocking)
+	# Create red dummy if in collsion
+	if collision:
+		result, handle = vrep.simxCreateDummy(clientID, 0.3, [255,0,0] , vrep.simx_opmode_blocking)
 
-	vrep.simxSetObjectPosition(clientID, handle, -1, [1.5, -2.5+(0.35*offset), 0], vrep.simx_opmode_oneshot)
+		vrep.simxSetObjectPosition(clientID, handle, -1, [1.5, -2.5+(0.35*offset), 0], vrep.simx_opmode_oneshot)
 
-	return handle
+		return handle
+
+	# Create green dummy if in collision
+	else:
+		result, handle = vrep.simxCreateDummy(clientID, 0.3,[0,255,0], vrep.simx_opmode_blocking)
+
+		vrep.simxSetObjectPosition(clientID, handle, -1, [1.5,-2.5+(0.35*offset), 0], vrep.simx_opmode_oneshot)
+
+		return handle
 
 # Clear the dummies
 def clearNotifications(clientID, dummies):
@@ -514,6 +524,7 @@ def main(args):
 
 	# Curl, no collision
 	thetas = [-45, -45, 60, 170, 0, 0, 0, 50]
+
 	for i in range(10):
 
 		moveTorso(clientID, thetas[0])
@@ -521,10 +532,14 @@ def main(args):
 
 		updated_arm_centers = updateCenters(clientID, arm_centers, SLeft, SRight, thetas)
 
+		time.sleep(0.3)
+
 		collision = checkCollision(updated_arm_centers, body_centers, rack_centers)
 		print(collision)
 		dummy_handle = notifyCollision(clientID, collision, i)
 		dummy_list.append(dummy_handle)
+
+		time.sleep(0.5)
 
 		thetas[4] += 15
 
@@ -534,7 +549,8 @@ def main(args):
 	dummy_list = []
 
 	# Hit the rack
-	thetas2 = [20, -20, 10, -30, 20, -40, -30, 45]
+	thetas2 = [20, -20, 0, -30, 20, -40, -30, 45]
+
 	for j in range(14):
 
 		moveTorso(clientID, thetas2[0])
@@ -546,20 +562,26 @@ def main(args):
 		# Use this line to update the centers using API calls:
 		updated_arm_centers = updateCenters(clientID, arm_centers, SLeft, SRight, thetas2, FK=False)
 
+		time.sleep(0.3)
 
 		collision = checkCollision(updated_arm_centers, body_centers, rack_centers)
 		print(collision)
 		dummy_handle = notifyCollision(clientID, collision, j)
 		dummy_list.append(dummy_handle)
 
+		time.sleep(0.5)
+
 		thetas2[0] += 5
 		thetas2[1] += 10
+
+	time.sleep(2)
 
 	clearNotifications(clientID, dummy_list)
 	dummy_list = []
 
 	# Bad curl, self-collision
-	thetas3 = [0, -20, 50, -90, 0, 0, 0, 90]
+	thetas3 = [-45, -20, 50, -90, 0, 0, 0, 90]
+
 	for k in range(14):
 
 		moveTorso(clientID, thetas3[0])
@@ -567,10 +589,14 @@ def main(args):
 
 		updated_arm_centers = updateCenters(clientID, arm_centers, SLeft, SRight, thetas3)
 
+		time.sleep(0.3)
+
 		collision = checkCollision(updated_arm_centers, body_centers, rack_centers)
 		print(collision)
 		dummy_handle = notifyCollision(clientID, collision, k)
 		dummy_list.append(dummy_handle)
+
+		time.sleep(0.5)
 
 		thetas3[3] += -2
 		thetas3[4] += 10
@@ -583,7 +609,7 @@ def main(args):
 	moveTorso(clientID, 0)
 	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, [0,0,0,0,0,0,0])
 
-	time.sleep(1)
+	time.sleep(2)
 
 	# Stop simulation
 	vrep.simxStopSimulation(clientID, vrep.simx_opmode_oneshot)
