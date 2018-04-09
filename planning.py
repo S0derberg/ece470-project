@@ -177,7 +177,7 @@ def moveTorso(clientID,theta,test=False):
 	if test:
 		testJoint(joint_handle, 0, clientID)
 	else:
-		vrep.simxSetJointTargetPosition(clientID, joint_handle, degToRad(theta), vrep.simx_opmode_oneshot)
+		vrep.simxSetJointTargetPosition(clientID, joint_handle, theta, vrep.simx_opmode_oneshot)
 
 # Move the gripper
 def moveGripper1(clientID):
@@ -223,7 +223,7 @@ def moveArm(arm, clientID, thetas):
 		    raise Exception("Could not get object handle for {} arm joint {}".format(arm, i+1))
 
 		# Set the desired value of the joint variable
-		vrep.simxSetJointTargetPosition(clientID, joint_handle, degToRad(thetas[i]), vrep.simx_opmode_oneshot)
+		vrep.simxSetJointTargetPosition(clientID, joint_handle, thetas[i], vrep.simx_opmode_oneshot)
 
 
 
@@ -232,7 +232,7 @@ def forwardKinematics(M, S, thetas):
 
 	product = 1
 	for s in range(len(thetas)):
-		product = np.dot(product, expm(bracket(S[:,s])*degToRad(thetas[s])))
+		product = np.dot(product, expm(bracket(S[:,s])*thetas[s]))
 
 	T = np.dot(product, M)
 	return T
@@ -319,13 +319,13 @@ def moveArmAndFrame(clientID, M, S, pose, arm, frame):
 		if tries > 10:
 			break
 
-		thetas, result = inverseKinematics(pose, M, S)
+		goal_thetas, result = inverseKinematics(pose, M, S)
 
 		if not result:
 			break
 
 		print("++++++++++++++++++++++++++++++++++++++")
-		validThetas = checkThetas(thetas, arm)
+		validThetas = checkThetas(goal_thetas, arm)
 		# validThetas = True
 		tries += 1
 
@@ -333,8 +333,14 @@ def moveArmAndFrame(clientID, M, S, pose, arm, frame):
 		# Couldn't find a valid set of thetas to reach the goal pose
 		moveTorso(clientID, 0, test=True)
 	else:
-		moveTorso(clientID, thetas[0])
-		moveArm(arm, clientID, thetas[1:])
+
+		# FIND PATH (LIST OF THETAS), ASSUMING THE START THETAS ARE ALL ZERO (RADIANS) AND USING THE GOAL THETAS FROM INVERSE KINEMATICS
+		path = findPath([0,0,0,0,0,0,0], goal_thetas)
+
+		for theta in path:
+
+			moveTorso(clientID, theta[0])
+			moveArm(arm, clientID, theta[1:])
 
 	time.sleep(3)
 
@@ -437,6 +443,17 @@ def clearNotifications(clientID, dummies):
 		vrep.simxRemoveObject(clientID, handle, vrep.simx_opmode_oneshot)
 
 
+# Check for collisions along a straight line from one theta to another.
+def checkStraightLine(theta_a, theta_b):
+	
+
+
+# Find a path from the start thetas to the goal thetas by using straight line segments.
+def findPath(start, goal):
+
+
+
+
 # Connect to V-Rep and start the simulation
 def main(args):
 
@@ -510,75 +527,32 @@ def main(args):
 		status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
 		arm_centers.append(np.array(position))
 
-	dummy_list = []
+	arm = "left"
+	x = 0
+	y = 1.2
+	z = 1.9
+	alpha = -60
+	beta = 0
+	gamma = 0
 
-	# Curl, no collision
-	thetas = [-45, -45, 60, 170, 0, 0, 0, 50]
-	for i in range(10):
+	pose = poseFromTranslationAndRotation(x, y, z, alpha, beta, gamma)
 
-		moveTorso(clientID, thetas[0])
-		moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas[1:])
-
-		updated_arm_centers = updateCenters(clientID, arm_centers, SLeft, SRight, thetas)
-
-		collision = checkCollision(updated_arm_centers, body_centers, rack_centers)
-		print(collision)
-		dummy_handle = notifyCollision(clientID, collision, i)
-		dummy_list.append(dummy_handle)
-
-		thetas[4] += 15
-
-	time.sleep(2)
-
-	clearNotifications(clientID, dummy_list)
-	dummy_list = []
-
-	# Hit the rack
-	thetas2 = [20, -20, 10, -30, 20, -40, -30, 45]
-	for j in range(14):
-
-		moveTorso(clientID, thetas2[0])
-		moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas2[1:])
-
-		# Use this line to update the centers using forward kinematics:
-		#updated_arm_centers = updateCenters(clientID, arm_centers, SLeft, SRight, thetas2)
-
-		# Use this line to update the centers using API calls:
-		updated_arm_centers = updateCenters(clientID, arm_centers, SLeft, SRight, thetas2, FK=False)
+	if arm == "left":
+		M = MLeft
+		S = SLeft
+	elif arm == "right":
+		M = MRight
+		S = SRight
+	else:
+		print("Please enter left or right for the arm")
+		return
 
 
-		collision = checkCollision(updated_arm_centers, body_centers, rack_centers)
-		print(collision)
-		dummy_handle = notifyCollision(clientID, collision, j)
-		dummy_list.append(dummy_handle)
-
-		thetas2[0] += 5
-		thetas2[1] += 10
-
-	clearNotifications(clientID, dummy_list)
-	dummy_list = []
-
-	# Bad curl, self-collision
-	thetas3 = [0, -20, 50, -90, 0, 0, 0, 90]
-	for k in range(14):
-
-		moveTorso(clientID, thetas3[0])
-		moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas3[1:])
-
-		updated_arm_centers = updateCenters(clientID, arm_centers, SLeft, SRight, thetas3)
-
-		collision = checkCollision(updated_arm_centers, body_centers, rack_centers)
-		print(collision)
-		dummy_handle = notifyCollision(clientID, collision, k)
-		dummy_list.append(dummy_handle)
-
-		thetas3[3] += -2
-		thetas3[4] += 10
-
+	moveArmAndFrame(clientID, M, S, pose, arm, "ReferenceFrame0")
 
 	time.sleep(2)
 
-	clearNotifications(clientID, dummy_list)
+
 
 	moveTorso(clientID, 0)
 	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, [0,0,0,0,0,0,0])
