@@ -20,6 +20,11 @@ arm_diam = [0.25, 0.3, 0.3, 0.3, 0.2, 0.25, 0.3, 0.3, 0.3, 0.2]
 self_diam = body_diam.copy()
 self_diam.extend(arm_diam)
 
+class Node:
+	def __init__(self,theta,parent):
+		self.theta = theta
+		self.parent = parent
+
 # Get the skew symmetric matrix of an array
 def skew(arr):
 	mat = np.zeros((3,3))
@@ -301,7 +306,7 @@ def moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas):
 
 
 # move the arm using inverse kinematics
-def moveArmAndFrame(clientID, M, S, pose, arm, frame):
+def moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, rack_centers, pose, arm, frame):
 
 	# Get handles for the frames so we can move them back to the origin when we're done with them
 	result, frame_handle = vrep.simxGetObjectHandle(clientID, frame, vrep.simx_opmode_blocking)
@@ -335,12 +340,15 @@ def moveArmAndFrame(clientID, M, S, pose, arm, frame):
 	else:
 
 		# FIND PATH (LIST OF THETAS), ASSUMING THE START THETAS ARE ALL ZERO (RADIANS) AND USING THE GOAL THETAS FROM INVERSE KINEMATICS
-		path = findPath([0,0,0,0,0,0,0], goal_thetas)
+		path = findPath(clientID, [0,0,0,0,0,0,0,0], goal_thetas, arm_centers, body_centers, rack_centers, SLeft, SRight, arm)
+		
+		if not path:
+			moveTorso(clientID, 0, test=True)
+		else:
+			for theta in path:
 
-		for theta in path:
-
-			moveTorso(clientID, theta[0])
-			moveArm(arm, clientID, theta[1:])
+				moveTorso(clientID, theta[0])
+				moveArm(arm, clientID, theta[1:])
 
 	time.sleep(3)
 
@@ -444,14 +452,86 @@ def clearNotifications(clientID, dummies):
 
 
 # Check for collisions along a straight line from one theta to another.
-def checkStraightLine(theta_a, theta_b):
-	
+def checkStraightLine(clientID, theta_a, theta_b, arm_centers, body_centers, rack_centers, Sleft, SRight, arm):
+	dtheta = 0.01
+	s = 0
+	while s <= 1:
+		theta = (1-s)*theta_a + s*theta_b
+		if arm == "left":
+			theta = np.block([theta,[0,0,0,0,0,0,0]])
+			new_arm_centers = updateCenters(clientID, arm_centers, SLeft, SRight, theta)
+		else:
+			theta = np.block([theta[0],[0,0,0,0,0,0,0],theta[1:]])
+			new_arm_centers = updateCenters(clientID, arm_centers, SLeft, SRight, theta)
+		collision = checkCollision(new_arm_centers, body_centers, rack_centers)
+		if collision:
+			return True
+		s = s + dtheta
+	return False
 
 
 # Find a path from the start thetas to the goal thetas by using straight line segments.
-def findPath(start, goal):
+def findPath(clientID, start, goal, arm_centers, body_centers, rack_centers, SLeft, SRight, arm):
+	theta_start = Node(start,None)
+	theta_goal = Node(goal,None)
 
+	forward = [theta_start]
+	backward = [theta_goal]
 
+	n = 0
+	while n <= 100:
+		theta = np.zeros(8)
+		theta[0] = (2.967 - (-2.967)) *np.random.random_sample() + (-2.967)
+		theta[1] = (1.7016 - (-1.7016)) *np.random.random_sample() + (-1.7016)
+		theta[2] = (1.047 - (-2.147)) *np.random.random_sample() + (-2.147)
+		theta[3] = (3.0541 - (-3.0541)) *np.random.random_sample() + (-3.0541)
+		theta[4] = (2.618 - (-0.05)) *np.random.random_sample() + (-0.05)
+		theta[5] = (3.059 - (-3.059)) *np.random.random_sample() + (-3.059)
+		theta[6] = (2.094 - (-1.5707)) *np.random.random_sample() + (-1.5707)
+		theta[7] = (3.059 - (-3.059)) *np.random.random_sample() + (-3.059)
+
+		LeastDistanceSoFar = 9999999999
+		addedToforward = False
+		addedTobackward = False
+
+		for Tforward in forward:
+			if np.linalg.norm(Tforward.theta-theta) < LeastDistanceSoFar:
+				ClosestNode = Tforward
+				LeastDistanceSoFar = np.linalg.norm(Tforward.theta-theta)
+
+		collision = checkStraightLine(clientID, ClosestNode.theta, theta, arm_centers, body_centers, rack_centers, SLeft, SRight, arm)
+		if not collision:
+			theta_new = Node(theta,ClosestNode)
+			forward.append(theta_new)
+			addedToforward = True
+
+		LeastDistanceSoFar = 9999999999
+		for Tbackward in backward:
+			if np.linalg.norm(Tbackward.theta-theta) < LeastDistanceSoFar:
+				ClosestNode = Tbackward
+				LeastDistanceSoFar = np.linalg.norm(Tbackward.theta-theta)
+
+		collision = checkStraightLine(clientID, ClosestNode.theta, theta, arm_centers, body_centers, rack_centers, SLeft, SRight, arm)
+		if not collision:
+			theta_new_backward = Node(theta,ClosestNode)
+			backward.append(theta_new_backward)
+			addedTobackward = True
+
+		if addedToforward and addedTobackward:
+			path = [theta_new.theta]
+			parent = theta_new.parent
+			while parent != None:
+				path = [parent.theta] + path
+				parent = parent.parent
+			
+			parent = theta_new_backward.parent
+			while parent != None:
+				path = path + [parent.theta]
+				parent = parent.parent
+
+			return path
+
+		return False
 
 
 # Connect to V-Rep and start the simulation
@@ -548,7 +628,7 @@ def main(args):
 		return
 
 
-	moveArmAndFrame(clientID, M, S, pose, arm, "ReferenceFrame0")
+	moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, rack_centers, pose, arm, "ReferenceFrame0")
 
 	time.sleep(2)
 
