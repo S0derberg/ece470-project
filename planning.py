@@ -331,7 +331,6 @@ def moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, ra
 
 		print("++++++++++++++++++++++++++++++++++++++")
 		validThetas = checkThetas(goal_thetas, arm)
-		# validThetas = True
 		tries += 1
 
 	if not validThetas:
@@ -340,7 +339,8 @@ def moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, ra
 	else:
 
 		# FIND PATH (LIST OF THETAS), ASSUMING THE START THETAS ARE ALL ZERO (RADIANS) AND USING THE GOAL THETAS FROM INVERSE KINEMATICS
-		path = findPath(clientID, [0,0,0,0,0,0,0,0], goal_thetas, arm_centers, body_centers, rack_centers, SLeft, SRight, arm)
+		path = findPath(clientID, np.array([0,0,0,0,0,0,0,0]), goal_thetas, arm_centers, body_centers, rack_centers, SLeft, SRight, arm)
+		print(path)
 		
 		if not path:
 			moveTorso(clientID, 0, test=True)
@@ -349,6 +349,9 @@ def moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, ra
 
 				moveTorso(clientID, theta[0])
 				moveArm(arm, clientID, theta[1:])
+				time.sleep(1)
+		# moveTorso(clientID, goal_thetas[0])
+		# moveArm(arm, clientID, goal_thetas[1:])
 
 	time.sleep(3)
 
@@ -452,16 +455,16 @@ def clearNotifications(clientID, dummies):
 
 
 # Check for collisions along a straight line from one theta to another.
-def checkStraightLine(clientID, theta_a, theta_b, arm_centers, body_centers, rack_centers, Sleft, SRight, arm):
-	dtheta = 0.01
+def checkStraightLine(clientID, theta_a, theta_b, arm_centers, body_centers, rack_centers, SLeft, SRight, arm):
+	dtheta = 0.005
 	s = 0
 	while s <= 1:
 		theta = (1-s)*theta_a + s*theta_b
 		if arm == "left":
-			theta = np.block([theta,[0,0,0,0,0,0,0]])
+			theta = np.block([theta,0,0,0,0,0,0,0])
 			new_arm_centers = updateCenters(clientID, arm_centers, SLeft, SRight, theta)
 		else:
-			theta = np.block([theta[0],[0,0,0,0,0,0,0],theta[1:]])
+			theta = np.block([theta[0],0,0,0,0,0,0,0,theta[1:]])
 			new_arm_centers = updateCenters(clientID, arm_centers, SLeft, SRight, theta)
 		collision = checkCollision(new_arm_centers, body_centers, rack_centers)
 		if collision:
@@ -479,7 +482,8 @@ def findPath(clientID, start, goal, arm_centers, body_centers, rack_centers, SLe
 	backward = [theta_goal]
 
 	n = 0
-	while n <= 100:
+	while n <= 50:
+		print(n)
 		theta = np.zeros(8)
 		theta[0] = (2.967 - (-2.967)) *np.random.random_sample() + (-2.967)
 		theta[1] = (1.7016 - (-1.7016)) *np.random.random_sample() + (-1.7016)
@@ -531,7 +535,9 @@ def findPath(clientID, start, goal, arm_centers, body_centers, rack_centers, SLe
 
 			return path
 
-		return False
+		n += 1
+
+	return False
 
 
 # Connect to V-Rep and start the simulation
@@ -607,13 +613,37 @@ def main(args):
 		status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
 		arm_centers.append(np.array(position))
 
+	# arm = "right"
+	# x = 1.1
+	# y = 0.3
+	# z = 1.3
+	# alpha = -90
+	# beta = 45
+	# gamma = 0
+
 	arm = "left"
-	x = 0
-	y = 1.2
-	z = 1.9
-	alpha = -60
+	x = -0.5
+	y = -0.5
+	z = 1.3
+	alpha = 90
 	beta = 0
 	gamma = 0
+
+	# arm = "left"
+	# x = -0.5
+	# y = 0.5
+	# z = 1.3
+	# alpha = 0
+	# beta = -90
+	# gamma = 0
+
+	# arm = "right"
+	# x = -0.5
+	# y = 0.5
+	# z = 1.7
+	# alpha = 0
+	# beta = -90
+	# gamma = 0
 
 	pose = poseFromTranslationAndRotation(x, y, z, alpha, beta, gamma)
 
