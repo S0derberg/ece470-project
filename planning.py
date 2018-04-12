@@ -387,8 +387,9 @@ def updateCenters(clientID, centers, SLeft, SRight, thetas, FK=True):
 	new_centers = []
 
 	if FK:
-		left_thetas = thetas.copy()
-		right_thetas = [thetas[0], -1*thetas[1], thetas[2], -1*thetas[3], thetas[4], -1*thetas[5], thetas[6], thetas[7]]
+		left_thetas = thetas[:8]
+		#right_thetas = [thetas[0], -1*thetas[1], thetas[2], -1*thetas[3], thetas[4], -1*thetas[5], thetas[6], thetas[7]]
+		right_thetas = np.block([thetas[0], thetas[8:]])
 
 		joints_to_add = [0,1,3,5,7]
 		for i in range(5):
@@ -410,7 +411,6 @@ def updateCenters(clientID, centers, SLeft, SRight, thetas, FK=True):
 
 			status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
 			new_centers.append(np.array(position))
-
 	return new_centers
 
 
@@ -427,13 +427,13 @@ def checkCollision(arm_centers, body_centers, rack_centers):
 			if np.linalg.norm(center - rack) < arm_diam[a]/2 + rack_diam/2:
 				return True
 
-	# Check for self-collision
+	#Check for self-collision
 	self_centers = body_centers.copy()
 	self_centers.extend(arm_centers)
 	total = len(arm_names) + len(body_names)
 	for i in range(total):
-		for j in range(total-1-i):
-			if np.linalg.norm(self_centers[i] - self_centers[j+i+1]) < self_diam[i]/2 + self_diam[j+i+1]/2:
+		for j in range(i+1, total):
+			if np.linalg.norm(self_centers[i] - self_centers[j]) < self_diam[i]/2 + self_diam[j]/2:
 				return True
 
 	return False
@@ -456,7 +456,7 @@ def clearNotifications(clientID, dummies):
 
 # Check for collisions along a straight line from one theta to another.
 def checkStraightLine(clientID, theta_a, theta_b, arm_centers, body_centers, rack_centers, SLeft, SRight, arm):
-	dtheta = 0.005
+	dtheta = 0.01
 	s = 0
 	while s <= 1:
 		theta = (1-s)*theta_a + s*theta_b
@@ -477,6 +477,7 @@ def checkStraightLine(clientID, theta_a, theta_b, arm_centers, body_centers, rac
 def findPath(clientID, start, goal, arm_centers, body_centers, rack_centers, SLeft, SRight, arm):
 	theta_start = Node(start,None)
 	theta_goal = Node(goal,None)
+	#print(goal)
 
 	forward = [theta_start]
 	backward = [theta_goal]
@@ -514,12 +515,16 @@ def findPath(clientID, start, goal, arm_centers, body_centers, rack_centers, SLe
 			if np.linalg.norm(Tbackward.theta-theta) < LeastDistanceSoFar:
 				ClosestNode = Tbackward
 				LeastDistanceSoFar = np.linalg.norm(Tbackward.theta-theta)
+		#print(ClosestNode.theta)
 
-		collision = checkStraightLine(clientID, ClosestNode.theta, theta, arm_centers, body_centers, rack_centers, SLeft, SRight, arm)
+		collision = checkStraightLine(clientID, theta, ClosestNode.theta, arm_centers, body_centers, rack_centers, SLeft, SRight, arm)
 		if not collision:
 			theta_new_backward = Node(theta,ClosestNode)
 			backward.append(theta_new_backward)
 			addedTobackward = True
+
+		# print(forward)
+		# print(backward)
 
 		if addedToforward and addedTobackward:
 			path = [theta_new.theta]
@@ -613,22 +618,33 @@ def main(args):
 		status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
 		arm_centers.append(np.array(position))
 
+
+
 	# arm = "right"
-	# x = 1.1
-	# y = 0.3
-	# z = 1.3
+	# x = 0.2
+	# y = 0.8
+	# z = 1.7
 	# alpha = -90
-	# beta = 45
+	# beta = 0
 	# gamma = 0
 
-	arm = "left"
-	x = -0.5
-	y = -0.5
-	z = 1.3
-	alpha = 90
-	beta = 0
-	gamma = 0
+	# arm = "left"
+	# x = 0.8
+	# y = 0.3
+	# z = 1.7
+	# alpha = 0
+	# beta = 90
+	# gamma = 90
 
+	# arm = "left"
+	# x = -0.5
+	# y = -0.5
+	# z = 1.3
+	# alpha = 90
+	# beta = 0
+	# gamma = 0
+
+	# good for old rack position
 	# arm = "left"
 	# x = -0.5
 	# y = 0.5
@@ -667,7 +683,7 @@ def main(args):
 	moveTorso(clientID, 0)
 	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, [0,0,0,0,0,0,0])
 
-	time.sleep(1)
+	# time.sleep(1)
 
 	# Stop simulation
 	vrep.simxStopSimulation(clientID, vrep.simx_opmode_oneshot)
