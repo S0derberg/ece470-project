@@ -8,8 +8,9 @@ from scipy.linalg import expm, logm
 # Run our Baxter Demonstration. Based off the sample code in 'test.py'
 # from Professor Bretl.
 
-rack_names = ["Dummy_rack_1", "Dummy_rack_2", "Dummy_rack_3", "Dummy_rack_4", "Dummy_rack_5", "Dummy_rack_6", "Dummy_rack_7", "Dummy_rack_8", "Dummy_rack_9", "Dummy_rack_10", "Dummy_rack_11", "Dummy_rack_12"]
-rack_diam = 0.5
+rack_names = ["Dummy", "Dummy0", "Dummy1", "Dummy2"]
+#rack_diam = [0.5, 0.5, 0.25, 0.2]
+rack_diam = [0.6, 0.6, 0.35, 0.3]
 
 body_names = ["Dummy_body_low"]
 body_diam = [0.4]
@@ -349,7 +350,7 @@ def moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, ra
 
 				moveTorso(clientID, theta[0])
 				moveArm(arm, clientID, theta[1:])
-				time.sleep(1)
+				time.sleep(2)
 		# moveTorso(clientID, goal_thetas[0])
 		# moveArm(arm, clientID, goal_thetas[1:])
 
@@ -424,7 +425,7 @@ def checkCollision(arm_centers, body_centers, rack_centers):
 		for r in range(len(rack_names)):
 			rack = rack_centers[r]
 
-			if np.linalg.norm(center - rack) < arm_diam[a]/2 + rack_diam/2:
+			if np.linalg.norm(center - rack) < arm_diam[a]/2 + rack_diam[r]/2:
 				return True
 
 	#Check for self-collision
@@ -477,7 +478,6 @@ def checkStraightLine(clientID, theta_a, theta_b, arm_centers, body_centers, rac
 def findPath(clientID, start, goal, arm_centers, body_centers, rack_centers, SLeft, SRight, arm):
 	theta_start = Node(start,None)
 	theta_goal = Node(goal,None)
-	#print(goal)
 
 	forward = [theta_start]
 	backward = [theta_goal]
@@ -486,7 +486,8 @@ def findPath(clientID, start, goal, arm_centers, body_centers, rack_centers, SLe
 	while n <= 50:
 		print(n)
 		theta = np.zeros(8)
-		theta[0] = (2.967 - (-2.967)) *np.random.random_sample() + (-2.967)
+		# theta[0] = (2.967 - (-2.967)) *np.random.random_sample() + (-2.967)
+		theta[0] = (1 - (-1)) *np.random.random_sample() + (-1)
 		theta[1] = (1.7016 - (-1.7016)) *np.random.random_sample() + (-1.7016)
 		theta[2] = (1.047 - (-2.147)) *np.random.random_sample() + (-2.147)
 		theta[3] = (3.0541 - (-3.0541)) *np.random.random_sample() + (-3.0541)
@@ -515,7 +516,7 @@ def findPath(clientID, start, goal, arm_centers, body_centers, rack_centers, SLe
 			if np.linalg.norm(Tbackward.theta-theta) < LeastDistanceSoFar:
 				ClosestNode = Tbackward
 				LeastDistanceSoFar = np.linalg.norm(Tbackward.theta-theta)
-		#print(ClosestNode.theta)
+
 
 		collision = checkStraightLine(clientID, theta, ClosestNode.theta, arm_centers, body_centers, rack_centers, SLeft, SRight, arm)
 		if not collision:
@@ -523,8 +524,6 @@ def findPath(clientID, start, goal, arm_centers, body_centers, rack_centers, SLe
 			backward.append(theta_new_backward)
 			addedTobackward = True
 
-		# print(forward)
-		# print(backward)
 
 		if addedToforward and addedTobackward:
 			path = [theta_new.theta]
@@ -619,47 +618,14 @@ def main(args):
 		arm_centers.append(np.array(position))
 
 
+	arm = "left"
+	x = 0.8
+	y = 0.2
+	z = 1.0
+	alpha = 0
+	beta = 90
+	gamma = 90
 
-	# arm = "right"
-	# x = 0.2
-	# y = 0.8
-	# z = 1.7
-	# alpha = -90
-	# beta = 0
-	# gamma = 0
-
-	# arm = "left"
-	# x = 0.8
-	# y = 0.3
-	# z = 1.7
-	# alpha = 0
-	# beta = 90
-	# gamma = 90
-
-	# arm = "left"
-	# x = -0.5
-	# y = -0.5
-	# z = 1.3
-	# alpha = 90
-	# beta = 0
-	# gamma = 0
-
-	# good for old rack position
-	# arm = "left"
-	# x = -0.5
-	# y = 0.5
-	# z = 1.3
-	# alpha = 0
-	# beta = -90
-	# gamma = 0
-
-	# arm = "right"
-	# x = -0.5
-	# y = 0.5
-	# z = 1.7
-	# alpha = 0
-	# beta = -90
-	# gamma = 0
 
 	pose = poseFromTranslationAndRotation(x, y, z, alpha, beta, gamma)
 
@@ -676,14 +642,65 @@ def main(args):
 
 	moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, rack_centers, pose, arm, "ReferenceFrame0")
 
-	time.sleep(2)
+
+
+	moveTorso(clientID, 0)
+	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, [0,0,0,0,0,0,0])
+
+	arm = "right"
+	x = 0.2
+	y = 0.8
+	z = 1.7
+	alpha = -90
+	beta = 0
+	gamma = 0
+
+	pose = poseFromTranslationAndRotation(x, y, z, alpha, beta, gamma)
+	if arm == "left":
+		M = MLeft
+		S = SLeft
+	elif arm == "right":
+		M = MRight
+		S = SRight
+	else:
+		print("Please enter left or right for the arm")
+		return
+
+	moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, rack_centers, pose, arm, "ReferenceFrame1")
 
 
 
 	moveTorso(clientID, 0)
 	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, [0,0,0,0,0,0,0])
 
-	# time.sleep(1)
+	arm = "right"
+	x = 0.1
+	y = 0.9
+	z = 0.8
+	alpha = -90
+	beta = 0
+	gamma = 0
+
+	pose = poseFromTranslationAndRotation(x, y, z, alpha, beta, gamma)
+	if arm == "left":
+		M = MLeft
+		S = SLeft
+	elif arm == "right":
+		M = MRight
+		S = SRight
+	else:
+		print("Please enter left or right for the arm")
+		return
+
+	moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, rack_centers, pose, arm, "ReferenceFrame2")
+
+
+
+	moveTorso(clientID, 0)
+	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, [0,0,0,0,0,0,0])
+
+	time.sleep(1)
+
 
 	# Stop simulation
 	vrep.simxStopSimulation(clientID, vrep.simx_opmode_oneshot)
