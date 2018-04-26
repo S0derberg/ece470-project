@@ -15,8 +15,8 @@ rack_diam = [0.6, 0.6, 0.35, 0.3]
 body_names = ["Dummy_body_low"]
 body_diam = [0.4]
 
-arm_names = ["Dummy_left_joint1", "Dummy_left_joint2", "Dummy_left_joint4", "Dummy_left_joint6", "Dummy_left_hand", "Dummy_right_joint1", "Dummy_right_joint2", "Dummy_right_joint4", "Dummy_right_joint6", "Dummy_right_hand"]
-arm_diam = [0.25, 0.3, 0.3, 0.3, 0.2, 0.25, 0.3, 0.3, 0.3, 0.2]
+arm_names = ["Dummy_left_joint1", "Dummy_left_joint2", "Dummy_left_joint4", "Dummy_left_joint6", "Dummy_right_joint1", "Dummy_right_joint2", "Dummy_right_joint4", "Dummy_right_joint6"]
+arm_diam = [0.25, 0.3, 0.3, 0.3, 0.25, 0.3, 0.3, 0.3]
 
 self_diam = body_diam.copy()
 self_diam.extend(arm_diam)
@@ -593,13 +593,13 @@ def main(args):
 	body_centers = []
 	arm_centers = []
 
-	for j in range(len(rack_names)):
-		result, dummy_handle = vrep.simxGetObjectHandle(clientID, rack_names[j], vrep.simx_opmode_blocking)
-		if result != vrep.simx_return_ok:
-		    raise Exception("Could not get object handle for the Dummy object")
+	# for j in range(len(rack_names)):
+	# 	result, dummy_handle = vrep.simxGetObjectHandle(clientID, rack_names[j], vrep.simx_opmode_blocking)
+	# 	if result != vrep.simx_return_ok:
+	# 	    raise Exception("Could not get object handle for the Dummy object")
 
-		status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
-		rack_centers.append(np.array(position))
+	# 	status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
+	# 	rack_centers.append(np.array(position))
 
 	for k in range(len(body_names)):
 		result, dummy_handle = vrep.simxGetObjectHandle(clientID, body_names[k], vrep.simx_opmode_blocking)
@@ -618,9 +618,62 @@ def main(args):
 		arm_centers.append(np.array(position))
 
 
+	result, table_handle = vrep.simxGetObjectHandle(clientID, "customizableTable", vrep.simx_opmode_blocking)
+	if result != vrep.simx_return_ok:
+	    raise Exception("Could not get object handle for the table object")
 
 
-	time.sleep(1)
+
+
+
+	# status, table_position = vrep.simxGetObjectPosition(clientID, table_handle, -1, vrep.simx_opmode_blocking)
+	
+	# dummies = []
+	# for i in range(9):
+	# 	x_offset = np.array([i*0.1-0.4, 0, 0])
+
+	# 	for j in range(12):
+	# 		y_offset = np.array([0, j*0.1-0.55, 0])
+
+	# 		result, handle = vrep.simxCreateDummy(clientID, 0.12, [0,0,255], vrep.simx_opmode_blocking)
+	# 		dummies.append(handle)
+	# 		vrep.simxSetObjectPosition(clientID, handle, -1, np.array(table_position) + x_offset + y_offset, vrep.simx_opmode_oneshot)
+
+	vrep.simxSetIntegerSignal(clientID, "leftGripperClose", 1, vrep.simx_opmode_oneshot)
+	vrep.simxSetIntegerSignal(clientID, "rightGripperClose", 1, vrep.simx_opmode_oneshot)
+
+	time.sleep(3)
+
+	# Open the hands
+	# vrep.simxSetIntegerSignal(clientID, "leftGripperClose", 0, vrep.simx_opmode_oneshot)
+	# vrep.simxSetIntegerSignal(clientID, "rightGripperClose", 0, vrep.simx_opmode_oneshot)
+
+	# time.sleep(4)
+
+	#clearNotifications(clientID, dummies)
+
+	result, joint_handle = vrep.simxGetObjectHandle(clientID, "Baxter_rightArm_joint2", vrep.simx_opmode_blocking)
+	if result != vrep.simx_return_ok:
+	    raise Exception("Could not get object handle for {} arm joint {}".format(arm, i+1))
+
+	# Set the desired value of the joint variable
+	vrep.simxSetJointTargetPosition(clientID, joint_handle, -3, vrep.simx_opmode_oneshot)
+
+	time.sleep(3)
+
+
+	result, joint_handle = vrep.simxGetObjectHandle(clientID, "Baxter_rightArm_joint4", vrep.simx_opmode_blocking)
+	if result != vrep.simx_return_ok:
+	    raise Exception("Could not get object handle for {} arm joint {}".format(arm, i+1))
+
+	# Set the desired value of the joint variable
+	vrep.simxSetJointTargetPosition(clientID, joint_handle, 3, vrep.simx_opmode_oneshot)
+
+	time.sleep(3)
+
+	moveTorso(clientID, 0, test=True)
+
+	time.sleep(3)
 
 
 	# Stop simulation
