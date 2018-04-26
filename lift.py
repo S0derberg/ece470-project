@@ -14,13 +14,8 @@ obstacle_diam = [0.16, 0.16]
 body_names = ["Dummy_body_low"]
 body_diam = [0.4]
 
-<<<<<<< HEAD
-arm_names = ["Dummy_left_joint1", "Dummy_left_joint2", "Dummy_left_joint4", "Dummy_left_joint6", "Dummy_right_joint1", "Dummy_right_joint2", "Dummy_right_joint4", "Dummy_right_joint6"]
-arm_diam = [0.25, 0.3, 0.3, 0.3, 0.25, 0.3, 0.3, 0.3]
-=======
 arm_names = ["Dummy_left_joint1", "Dummy_left_joint2", "Dummy_left_joint4", "Dummy_left_joint6","Dummy_left_joint7", "Dummy_left_hand", "Dummy_right_joint1", "Dummy_right_joint2", "Dummy_right_joint4", "Dummy_right_joint6", "Dummy_right_joint7", "Dummy_right_hand"]
 arm_diam = [0.25, 0.3, 0.3, 0.15, 0.11, 0.10, 0.25, 0.3, 0.3, 0.15, 0.11, 0.10]
->>>>>>> b2028818b660bbb41ae98a28358531c22afc9b27
 
 self_diam = body_diam.copy()
 self_diam.extend(arm_diam)
@@ -140,27 +135,6 @@ def testJoint(joint_handle, jointID, clientID):
 	# Set the desired value of the joint variable back to the initial state
 	vrep.simxSetJointTargetPosition(clientID, joint_handle, theta0, vrep.simx_opmode_oneshot)
 
-def testGripper(gripper_handle, gripperID, gripper_Pos, clientID):
-
-	time.sleep(1)
-
-	# Close the gripper
-	# vrep.simxSetJointTargetPosition(clientID, gripper_handle, -gripper_Pos, vrep.simx_opmode_oneshot)
-	# time.sleep(1)
-
-	result, theta = vrep.simxGetJointPosition(clientID, gripper_handle, vrep.simx_opmode_blocking)
-	print("Theta is {}".format(theta))
-
-	# Open the gripper
-	vrep.simxSetJointTargetPosition(clientID, gripper_handle, theta - np.pi, vrep.simx_opmode_oneshot)
-	time.sleep(1)
-
-	result, theta = vrep.simxGetJointPosition(clientID, gripper_handle, vrep.simx_opmode_blocking)
-	print("Theta is {}".format(theta))
-
-	# Hold the gripper
-	vrep.simxSetJointTargetPosition(clientID, gripper_handle, 0, vrep.simx_opmode_oneshot)
-	time.sleep(1)
 
 # Move all the joints of an arm
 def testArm(arm, clientID):
@@ -189,22 +163,6 @@ def moveTorso(clientID,theta,test=False):
 	else:
 		vrep.simxSetJointTargetPosition(clientID, joint_handle, theta, vrep.simx_opmode_oneshot)
 
-# Move the gripper
-def moveLeftGripper(clientID):
-	print("Test Gripper 1\n")
-	result, gripper_handle = vrep.simxGetObjectHandle(clientID, "JacoHand_fingers12_motor1", vrep.simx_opmode_blocking)
-	if result != vrep.simx_return_ok:
-		raise Execption("Could not get object handle for gripper")
-
-	testGripper(gripper_handle, "JacoHand_fingers12_motor1", 1, clientID)
-
-def moveRightGripper(clientID):
-	print("Test Gripper 2\n")
-	result, gripper_handle = vrep.simxGetObjectHandle(clientID, "JacoHand_fingers12_motor1#0", vrep.simx_opmode_blocking)
-	if result != vrep.simx_return_ok:
-		raise Execption("Could not get object handle for gripper")
-
-	testGripper(gripper_handle, "JacoHand_fingers12_motor1#0", 1, clientID)
 	
 # Move the dummy reference frame to the given pose.
 def moveFrame(clientID, frameID, pose):
@@ -311,7 +269,7 @@ def moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas):
 
 
 # move the arm using inverse kinematics
-def moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, obstacle_centers, pose, arm, frame):
+def moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, obstacle_centers, pose, arm, frame, plan=True):
 
 	# Get handles for the frames so we can move them back to the origin when we're done with them
 	result, frame_handle = vrep.simxGetObjectHandle(clientID, frame, vrep.simx_opmode_blocking)
@@ -326,7 +284,7 @@ def moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, ob
 	validThetas = False
 	tries = 0
 	while not validThetas:
-		if tries > 10:
+		if tries > 30:
 			break
 
 		goal_thetas, result = inverseKinematics(pose, M, S)
@@ -343,20 +301,22 @@ def moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, ob
 		moveTorso(clientID, 0, test=True)
 	else:
 
-		# FIND PATH (LIST OF THETAS), ASSUMING THE START THETAS ARE ALL ZERO (RADIANS) AND USING THE GOAL THETAS FROM INVERSE KINEMATICS
-		path = findPath(clientID, np.array([0,0,0,0,0,0,0,0]), goal_thetas, arm_centers, body_centers, obstacle_centers, SLeft, SRight, arm)
-		print(path)
-		
-		if not path:
-			moveTorso(clientID, 0, test=True)
-		else:
-			for theta in path:
+		if plan:
+			# FIND PATH (LIST OF THETAS), ASSUMING THE START THETAS ARE ALL ZERO (RADIANS) AND USING THE GOAL THETAS FROM INVERSE KINEMATICS
+			path = findPath(clientID, np.array([0,0,0,0,0,0,0,0]), goal_thetas, arm_centers, body_centers, obstacle_centers, SLeft, SRight, arm)
+			print(path)
+			
+			if not path:
+				moveTorso(clientID, 0, test=True)
+			else:
+				for theta in path:
 
-				moveTorso(clientID, theta[0])
-				moveArm(arm, clientID, theta[1:])
-				time.sleep(2)
-		# moveTorso(clientID, goal_thetas[0])
-		# moveArm(arm, clientID, goal_thetas[1:])
+					moveTorso(clientID, theta[0])
+					moveArm(arm, clientID, theta[1:])
+					time.sleep(2)
+		else:
+			moveTorso(clientID, goal_thetas[0])
+			moveArm(arm, clientID, goal_thetas[1:])
 
 	time.sleep(3)
 
@@ -490,8 +450,8 @@ def findPath(clientID, start, goal, arm_centers, body_centers, obstacle_centers,
 	while n <= 50:
 		print(n)
 		theta = np.zeros(8)
-		# theta[0] = (2.967 - (-2.967)) *np.random.random_sample() + (-2.967)
-		theta[0] = (1 - (-1)) *np.random.random_sample() + (-1)
+		theta[0] = (2.967 - (-2.967)) *np.random.random_sample() + (-2.967)
+		#theta[0] = (1 - (-1)) *np.random.random_sample() + (-1)
 		theta[1] = (1.7016 - (-1.7016)) *np.random.random_sample() + (-1.7016)
 		theta[2] = (1.047 - (-2.147)) *np.random.random_sample() + (-2.147)
 		theta[3] = (3.0541 - (-3.0541)) *np.random.random_sample() + (-3.0541)
@@ -620,23 +580,14 @@ def main(args):
 
 		status, position = vrep.simxGetObjectPosition(clientID, dummy_handle, -1, vrep.simx_opmode_blocking)
 		arm_centers.append(np.array(position))
-
-	result, dumbell_handle = vrep.simxGetObjectHandle(clientID, "15lbDumbell0", vrep.simx_opmode_blocking)
-	if result != vrep.simx_return_ok:
-		raise Exception("Could not get object handle for the Dumbell object")
-
-	status, position = vrep.simxGetObjectPosition(clientID, dumbell_handle, -1, vrep.simx_opmode_blocking)
-	pose = np.eye(4)
-	pose[0:3,3] = np.array(position)+np.array([0,-0.15,0])
-	rotation = np.array([[-1,0,0],[0,0,1],[0,1,0]])
-	pose[0:3,0:3] = rotation
+	
 
 	result, table_handle = vrep.simxGetObjectHandle(clientID, "customizableTable", vrep.simx_opmode_blocking)
 	if result != vrep.simx_return_ok:
 		raise Exception("Could not get object handle for the Table object")
 	
 	status, table_position = vrep.simxGetObjectPosition(clientID, table_handle, -1, vrep.simx_opmode_blocking)
-	
+
 	dummies = []
 	for i in range(13):
 		x_offset = np.array([i*0.1-0.6, 0, 0])
@@ -645,14 +596,12 @@ def main(args):
 		for j in range(9):
 			y_offset = np.array([0, j*0.1-0.4, 0])
 
-
 			result, handle = vrep.simxCreateDummy(clientID, 0.1, [0,0,255], vrep.simx_opmode_blocking)
 			dummies.append(handle)
 			vrep.simxSetObjectPosition(clientID, handle, -1, np.array(table_position) + x_offset + y_offset, vrep.simx_opmode_oneshot)
 			obstacle_centers.append(np.array(table_position) + x_offset + y_offset)
 			obstacle_names.append("dummy")
 			obstacle_diam.append(0.1)
-
 
 
 	arm = "left"
@@ -667,47 +616,86 @@ def main(args):
 		print("Please enter left or right for the arm")
 		return
 
+	result, dumbell_handle = vrep.simxGetObjectHandle(clientID, "15lbDumbell0", vrep.simx_opmode_blocking)
+	if result != vrep.simx_return_ok:
+		raise Exception("Could not get object handle for the Dumbell object")
+
+	status, position = vrep.simxGetObjectPosition(clientID, dumbell_handle, -1, vrep.simx_opmode_blocking)
+	pose = np.eye(4)
+	pose[0:3,3] = np.array(position)+np.array([0, -0.2, 0.25])
+	rotation = np.array([[-1,0,0],[0,0,1],[0,1,0]])
+	pose[0:3,0:3] = rotation
+
 	moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, obstacle_centers, pose, arm, "ReferenceFrame0")
 
-	# time.sleep(2)
+	pose2 = np.eye(4)
+	pose2[0:3,3] = np.array(position)+np.array([0, -0.2, 0])
+	rotation = np.array([[-1,0,0],[0,0,1],[0,1,0]])
+	pose2[0:3,0:3] = rotation
 
-	# vrep.simxSetIntegerSignal(clientID, "leftGripperClose", 1, vrep.simx_opmode_oneshot)
-	# vrep.simxSetIntegerSignal(clientID, "rightGripperClose", 1, vrep.simx_opmode_oneshot)
+	moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, obstacle_centers, pose2, arm, "ReferenceFrame1", plan=False)
 
-	# time.sleep(3)
+	pose3 = np.eye(4)
+	pose3[0:3,3] = np.array(position)+np.array([0, -0.1, 0])
+	rotation = np.array([[-1,0,0],[0,0,1],[0,1,0]])
+	pose3[0:3,0:3] = rotation
 
-	# # Open the hands
-	# # vrep.simxSetIntegerSignal(clientID, "leftGripperClose", 0, vrep.simx_opmode_oneshot)
-	# # vrep.simxSetIntegerSignal(clientID, "rightGripperClose", 0, vrep.simx_opmode_oneshot)
+	moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, obstacle_centers, pose3, arm, "ReferenceFrame2", plan=False)
 
-	# # time.sleep(4)
+	time.sleep(1)
 
-	# #clearNotifications(clientID, dummies)
+	# Close the hands
+	vrep.simxSetIntegerSignal(clientID, "leftGripperClose", 1, vrep.simx_opmode_oneshot)
+	#vrep.simxSetIntegerSignal(clientID, "rightGripperClose", 1, vrep.simx_opmode_oneshot)
 
-	# result, joint_handle = vrep.simxGetObjectHandle(clientID, "Baxter_rightArm_joint2", vrep.simx_opmode_blocking)
-	# if result != vrep.simx_return_ok:
-	#     raise Exception("Could not get object handle for {} arm joint {}".format(arm, i+1))
+	time.sleep(2)
 
-	# # Set the desired value of the joint variable
-	# vrep.simxSetJointTargetPosition(clientID, joint_handle, -3, vrep.simx_opmode_oneshot)
+	result, joint_handle = vrep.simxGetObjectHandle(clientID, "Baxter_leftArm_joint2", vrep.simx_opmode_blocking)
+	if result != vrep.simx_return_ok:
+	    raise Exception("Could not get object handle for {} arm joint {}".format(arm, i+1))
 
-	# time.sleep(3)
+	# Set the desired value of the joint variable
+	vrep.simxSetJointTargetPosition(clientID, joint_handle, -3, vrep.simx_opmode_oneshot)
+
+	time.sleep(2)
+
+	# Back to zero position
+	thetas = [degToRad(-170),0,0,0,0,0,0,0]
+
+	moveTorso(clientID, thetas[0])
+	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas[1:])
+
+	time.sleep(2)
+
+	# Curl
+	thetas = [degToRad(-170), degToRad(-45), degToRad(60), degToRad(170), 0, 0, 0, degToRad(220)]
+	for i in range(8):
+
+		moveTorso(clientID, thetas[0])
+		moveArm(arm, clientID, thetas[1:])
+
+		time.sleep(1)
+
+		thetas[4] += degToRad(15)
 
 
-	# result, joint_handle = vrep.simxGetObjectHandle(clientID, "Baxter_rightArm_joint4", vrep.simx_opmode_blocking)
-	# if result != vrep.simx_return_ok:
-	#     raise Exception("Could not get object handle for {} arm joint {}".format(arm, i+1))
+	time.sleep(2)
 
-	# # Set the desired value of the joint variable
-	# vrep.simxSetJointTargetPosition(clientID, joint_handle, 3, vrep.simx_opmode_oneshot)
+	# Back to zero position
+	thetas = [degToRad(-170),0,0,0,0,0,0,0]
 
-	# time.sleep(3)
+	moveTorso(clientID, thetas[0])
+	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas[1:])
 
-	# moveTorso(clientID, 0, test=True)
+	time.sleep(2)
 
-	time.sleep(3)
+	# Open the hands
+	vrep.simxSetIntegerSignal(clientID, "leftGripperClose", 0, vrep.simx_opmode_oneshot)
+	#vrep.simxSetIntegerSignal(clientID, "rightGripperClose", 0, vrep.simx_opmode_oneshot)
 
-	# clearNotifications(clientID,dummies)
+	time.sleep(4)
+
+	clearNotifications(clientID, dummies)
 	
 	# Stop simulation
 	vrep.simxStopSimulation(clientID, vrep.simx_opmode_oneshot)
