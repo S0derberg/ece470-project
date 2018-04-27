@@ -620,6 +620,7 @@ def main(args):
 	if result != vrep.simx_return_ok:
 		raise Exception("Could not get object handle for the Dumbell object")
 
+	# Go above the weight
 	status, position = vrep.simxGetObjectPosition(clientID, dumbell_handle, -1, vrep.simx_opmode_blocking)
 	pose = np.eye(4)
 	pose[0:3,3] = np.array(position)+np.array([0, -0.2, 0.25])
@@ -628,6 +629,7 @@ def main(args):
 
 	moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, obstacle_centers, pose, arm, "ReferenceFrame0")
 
+	# Go just in front of the weight
 	pose2 = np.eye(4)
 	pose2[0:3,3] = np.array(position)+np.array([0, -0.2, 0])
 	rotation = np.array([[-1,0,0],[0,0,1],[0,1,0]])
@@ -635,6 +637,7 @@ def main(args):
 
 	moveArmAndFrame(clientID, M, S, SLeft, SRight, arm_centers, body_centers, obstacle_centers, pose2, arm, "ReferenceFrame1", plan=False)
 
+	# Get closer to the weight
 	pose3 = np.eye(4)
 	pose3[0:3,3] = np.array(position)+np.array([0, -0.1, 0])
 	rotation = np.array([[-1,0,0],[0,0,1],[0,1,0]])
@@ -648,7 +651,7 @@ def main(args):
 	vrep.simxSetIntegerSignal(clientID, "leftGripperClose", 1, vrep.simx_opmode_oneshot)
 	#vrep.simxSetIntegerSignal(clientID, "rightGripperClose", 1, vrep.simx_opmode_oneshot)
 
-	time.sleep(2)
+	time.sleep(3)
 
 	result, joint_handle = vrep.simxGetObjectHandle(clientID, "Baxter_leftArm_joint2", vrep.simx_opmode_blocking)
 	if result != vrep.simx_return_ok:
@@ -657,7 +660,7 @@ def main(args):
 	# Set the desired value of the joint variable
 	vrep.simxSetJointTargetPosition(clientID, joint_handle, -3, vrep.simx_opmode_oneshot)
 
-	time.sleep(2)
+	time.sleep(3)
 
 	# Back to zero position
 	thetas = [degToRad(-170),0,0,0,0,0,0,0]
@@ -665,16 +668,17 @@ def main(args):
 	moveTorso(clientID, thetas[0])
 	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas[1:])
 
-	time.sleep(2)
+	time.sleep(3)
 
 	# Curl
 	thetas = [degToRad(-170), degToRad(-45), degToRad(60), degToRad(170), 0, 0, 0, degToRad(220)]
-	for i in range(8):
+	for i in range(10):
 
 		moveTorso(clientID, thetas[0])
 		moveArm(arm, clientID, thetas[1:])
 
-		time.sleep(1)
+		if i == 0:
+			time.sleep(3)
 
 		thetas[4] += degToRad(15)
 
@@ -687,13 +691,21 @@ def main(args):
 	moveTorso(clientID, thetas[0])
 	moveArmsAndFrames(clientID, MLeft, SLeft, MRight, SRight, thetas[1:])
 
+	# Dab
+
+	moveArm("left", clientID, [-0.35672754, -1.05517622, -1.43581716, 0.96819909, -0.85928368, 1.30047417, -1.54662531])
+
+	time.sleep(2)
+
+	moveArm("right", clientID, [0.29879645, -0.77735934, -1.1740211, 0.44697439, -1.1613436, -0.00886994, 1.1017402])
+
 	time.sleep(2)
 
 	# Open the hands
 	vrep.simxSetIntegerSignal(clientID, "leftGripperClose", 0, vrep.simx_opmode_oneshot)
 	#vrep.simxSetIntegerSignal(clientID, "rightGripperClose", 0, vrep.simx_opmode_oneshot)
 
-	time.sleep(4)
+	time.sleep(10)
 
 	clearNotifications(clientID, dummies)
 	
