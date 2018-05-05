@@ -59,5 +59,8 @@ We changed our scene a bit to reduce the number of spheres to check with.  Now B
 
 For our extra work, we both improved upon our inefficient motion planning solutions in our homework (that were either using too much space or being computationally inefficient).  We now use a Node structure that keeps track of a set of thetas and a parent Node.  This allows for easy path reconstruction once the final set of thetas is found.
 
+## Part 6 (Final Part)
+For the last assignment, we combine the work from the previous parts to achieve our goal of having Baxter lift a weight.  Be sure to get the newest V-Rep scene file.  The command to run it is "python lift.py". This will recreate the activity in our final project video.  It starts by automatically placing dummies in the table on which the dumbbells are resting.  These are placed so that Baxter does not collide with the table.  Next, Baxter will plan a path to a spot above and behind the bigger dumbbell.  After moving, he will make two more movements to get close to the dumbbell.  Then Baxter will grip the dumbbell, lift it up, rotate to not face the table, lower the weight, and then lift it in the form of a curl.  Lastly, Baxter dabs and then drops the weight.
+
 # For OS Other Than Windows
 The above How-to may not cover the exact steps you need to take if your operating system is not Windows.  An alternative would be to just take our python files and put it in your working V-Rep folder, making sure that your folder also has the correct dependent files that work on your OS.  You'll also still need to put our .ttt scene file in your scenes folder to have access to it in V-Rep.
